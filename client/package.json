@@ -1,0 +1,28 @@
+{
+  "name": "chess-client",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "verify:local": "node scripts/verify-local.mjs",
+    "verify:engine-protocol": "node scripts/verify-engine-protocol.mjs",
+    "prepare:stockfish": "node scripts/prepare-stockfish.mjs",
+    "dev": "npm run prepare:stockfish && vite",
+    "build": "npm run prepare:stockfish && vite build",
+    "preview": "vite preview",
+    "verify:data": "node scripts/verify-game-data.mjs",
+    "verify:auth": "node scripts/verify-auth.mjs",
+    "verify:bot": "node scripts/prepare-stockfish.mjs && node scripts/verify-stockfish.mjs"
+  },
+  "dependencies": {
+    "chess.js": "^1.4.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.18.4",
+    "stockfish": "^19.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^5.0.4",
+    "vite": "^7.1.7"
+  }
+}
