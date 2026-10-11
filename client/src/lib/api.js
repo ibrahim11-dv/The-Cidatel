@@ -59,3 +59,18 @@ export const accountApi = {
 }
 
 export { ApiError }
+
+export const gameApi = {
+  matchmaking: (seconds, increment) => request('/games/matchmaking', { method: 'POST', body: { seconds, increment }, authenticated: true }),
+  cancelMatchmaking: () => request('/games/matchmaking', { method: 'DELETE', authenticated: true }),
+  active: () => request('/games/active', { authenticated: true }),
+  offerDraw: (id) => request(`/games/${encodeURIComponent(id)}/draw/offer`, { method: 'POST', authenticated: true }),
+  respondToDraw: (id, accept) => request(`/games/${encodeURIComponent(id)}/draw/${accept ? 'accept' : 'decline'}`, { method: 'POST', authenticated: true }),
+  create: (seconds, increment) => request('/games/invitations', { method: 'POST', authenticated: true, body: { seconds, increment } }),
+  invitation: (code) => request(`/games/invitations/${encodeURIComponent(code)}`, { authenticated: true }),
+  cancel: (code) => request(`/games/invitations/${encodeURIComponent(code)}`, { method: 'DELETE', authenticated: true }),
+  join: (code) => request(`/games/invitations/${encodeURIComponent(code)}/join`, { method: 'POST', authenticated: true }),
+  state: (id) => request(`/games/${encodeURIComponent(id)}`, { authenticated: true }),
+  move: (id, body) => request(`/games/${encodeURIComponent(id)}/moves`, { method: 'POST', body, authenticated: true }),
+  resign: (id) => request(`/games/${encodeURIComponent(id)}/resign`, { method: 'POST', authenticated: true }),
+}

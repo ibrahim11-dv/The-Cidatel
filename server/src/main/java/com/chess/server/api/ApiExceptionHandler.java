@@ -15,6 +15,21 @@ import java.time.Instant;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    @ExceptionHandler(SecurityException.class)
+    ResponseEntity<ApiError> handleForbidden(SecurityException exception) {
+        return error(HttpStatus.FORBIDDEN, exception.getMessage());
+    }
+
+    @ExceptionHandler(java.util.NoSuchElementException.class)
+    ResponseEntity<ApiError> handleMissing(java.util.NoSuchElementException exception) {
+        return error(HttpStatus.NOT_FOUND, exception.getMessage());
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    ResponseEntity<ApiError> handleStateConflict(IllegalStateException exception) {
+        return error(HttpStatus.CONFLICT, exception.getMessage());
+    }
+
     @ExceptionHandler(AccountConflictException.class)
     ResponseEntity<ApiError> handleConflict(AccountConflictException exception) {
         return error(HttpStatus.CONFLICT, exception.getMessage());

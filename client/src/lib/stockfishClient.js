@@ -78,6 +78,7 @@ export class StockfishClient {
       if (!Number.isInteger(level.skill) || level.skill < 0 || level.skill > 20 || !Number.isFinite(level.moveTime) || level.moveTime < 1 || level.moveTime > 5000) throw new Error('Invalid engine level')
     } catch (error) { return Promise.reject(error) }
     this.cancel()
+    if (this.state !== 'ready') return Promise.reject(new Error('Stockfish stopped while cancelling its search. Restart the engine to continue.'))
     return new Promise((resolve, reject) => {
       const request = { position: game, command, level, resolve, reject }
       if (this.searching) this.queued = request
