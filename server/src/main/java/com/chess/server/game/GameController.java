@@ -26,6 +26,9 @@ public class GameController {
     }
     private UUID player(Authentication auth) { return (UUID) auth.getPrincipal(); }
 
+    @GetMapping("/lobby")
+    public PrivateGames.Lobby lobby(Authentication auth) { return games.lobby(player(auth)); }
+
     @GetMapping("/active")
     public GameSession.Snapshot active(Authentication auth) { return games.active(player(auth)); }
 

@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "verify:online-record": "node scripts/verify-online-record.mjs",
+    "verify:online-clock": "node scripts/verify-online-clock.mjs",
     "verify:api": "node scripts/verify-api.mjs",
     "verify:local": "node scripts/verify-local.mjs",
     "verify:engine-protocol": "node scripts/verify-engine-protocol.mjs",

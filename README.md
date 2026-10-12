@@ -9,7 +9,9 @@ The frontend calls `/api` through Vite's local proxy. The backend owns account d
 
 The bot table uses Stockfish 19's lite, single-threaded browser engine. Six strength configurations use skill and search-time limits; these are not calibrated player Elo ratings. Players can choose either color or random seating, enable hints, take back their turn, and restart the engine after a failure. The worker, WebAssembly binary, and its GPL-3.0 license text are prepared from the `stockfish` dependency when you run the client.
 
-Local play supports click and pointer-drag moves, promotion, time controls, draw claims/agreement, board flipping, move review, FEN/PGN files, and automatic restoration on this browser. Timed games continue while the page is closed. Appearance settings include six complete browser-saved palettes. Online multiplayer remains unimplemented; see `AUDIT.md` and `PROGRESS.md` for the roadmap and verification limits.
+Local play supports click and pointer-drag moves, promotion, time controls, draw claims/agreement, board flipping, move review, FEN/PGN files, and automatic restoration on this browser. Timed games continue while the page is closed. Appearance settings include six complete browser-saved palettes.
+
+Online play is partially implemented: authenticated private invitations, compatible-time-control matchmaking, server-validated moves and clocks, draw offers/claims, resignation and mutually accepted rematches. The client currently polls for updates. Game checkpoints use the existing database and active games reload at startup with downtime deducted; pending invitations, queue entries and rematch offers remain transient. Run one backend instance. Orderly recovery across separate server processes is tested. Full two-browser gameplay, browser reconnection, cleanup and remaining acceptance checks are still outstanding; see `PROGRESS.md` for the precise verification scope.
 
 ## Client
 

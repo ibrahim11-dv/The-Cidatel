@@ -1,5 +1,57 @@
 # The Citadel — implementation checkpoint
 
+## 12 October 2026: online move review and file exports
+
+OnlinePage now reuses ChessBoard, MoveLedger and the existing replay-control styling to inspect earlier positions, navigate from the starting position to the latest move, and return to live play. Review disables board moves while server clocks and polling continue. Captures and last-move highlights follow the selected position; review state is scoped to a game ID so rematches return to live play. Download controls export the complete PGN with player names and the authoritative result, or the displayed position as FEN. The new onlineRecord helper reconstructs standard-start online histories with chess.js.
+
+The online-record verification script passes PGN round trips for checkmate, resignation/draw result markers, castling, en passant and knight underpromotion, plus review-position boundaries. The production build passes. Browser download/review acceptance and two-client live gameplay still need verification; the full platform goal remains active.
+
+Files: client/src/pages/OnlinePage.jsx, client/src/lib/onlineRecord.js, client/scripts/verify-online-record.mjs, client/package.json.
+
+Commit message: feat(online): add move review and PGN and FEN exports
+
+## 12 October 2026: smooth online clock display
+
+Online clocks now estimate elapsed time using a monotonic browser clock between server snapshots, with an isolated clock component ticking every 100 milliseconds. Each accepted snapshot reanchors the estimate; inactive and finished clocks remain fixed, increments come from the server, and the display clamps at zero without declaring a result. During reconnect the estimate continues until a new authoritative snapshot arrives.
+
+The online-clock verification script and production client build pass. Browser timing and two-client gameplay acceptance remain pending; network latency can still cause small corrections when snapshots arrive. The overall platform goal remains incomplete.
+
+Commit message: fix(online): interpolate clock displays between server updates
+
+## 12 October 2026: waiting-room restoration
+
+Added authenticated lobby lookup returning the account's active game or pending invitation. OnlinePage restores the invitation/control after refresh, prioritizes a server-active game over a saved browser ID, and delays polling until that initial lookup finishes. Expired invitations return the user to the lobby instead of repeatedly polling a missing room.
+
+HTTP integration tests pass with new assertions for owner-only invitation recovery and transition to an active game after joining; client build passes. This restores rooms while the server is running; invitation persistence across server restart remains incomplete. Actual browser-refresh acceptance remains pending.
+
+Commit message: fix(online): restore pending invitations and prioritize server lobby state
+
+## 12 October 2026: background game maintenance
+
+Enabled a one-second scheduled maintenance pass: expired queue/invitation entries are removed, unobserved clock expiry is adjudicated/checkpointed, and completed games leave the in-memory cache after fifteen minutes. Database records remain available on demand. Completed saves release both account-to-active-game mappings. In-memory rematch metadata is discarded with old cached games.
+
+The full backend suite passed after adding maintenance (thirty-four tests, including real process restart). After the final active-account cleanup adjustment, maintenance, database integration, HTTP and persistence-failure tests passed again. New cache test verifies eviction causes a repository reload while preserving the completed result. A real browser abandonment/timeout scenario is still unverified; remaining full-goal requirements stay open.
+
+Commit message: feat(server): expire abandoned sessions and evict completed game caches
+
+## 12 October 2026: real server-process restart verification
+
+Added ProcessRestartTest and its RecoveryProcess fixture. Three distinct JVMs start the real Spring Boot application against one temporary file-backed H2 database: create/checkpoint, restart/resume/finish, restart/read completed record. The isolated database is outside the user's development data.
+
+The targeted process-restart test passes. It verifies active account assignment, exact position, draw-offer retention, downtime deduction, accepted-command deduplication, continued legal play and completed history/result/stopped clocks across actual process lifetimes. The previous thirty-two-test full suite remains the last full-suite run; this change adds one new passing process test. It covers orderly shutdown/restart, not forced termination during a write or browser reconnection. Those and remaining multiplayer requirements remain open.
+
+Commit message: test(server): verify game recovery across real process restarts
+
+## 12 October 2026: live persistence wiring — backend verification passed
+
+Connected production PrivateGames to GameStore. New private/matched/rematch games checkpoint before assignment; controller move/resignation/draw actions checkpoint before returning success; active games reload and account mappings rebuild at startup; finished records load on demand. Observed timeouts are checkpointed. Failed operation/checkpoint attempts restore the prior in-memory position, with elapsed time retained through recovery.
+
+Added fresh-registry database recovery and storage-failure regression tests. The initial Maven run was blocked by an approval-review usage limit. Retried through normal approval on 12 October: all thirty-two backend tests compile and pass with zero failures/errors. Recovery tests verify active account mappings, duplicate-command retention and completed-record reload; failure tests verify rejected storage writes roll back moves and do not assign new players.
+
+Outstanding persistence limitations include transient invitations/rematch offers and links, single-process coordination, completed-game cache cleanup and actual process-restart/browser verification.
+
+Commit message: feat(server): checkpoint live games and recover sessions on startup
+
 ## 12 October 2026: database game checkpoint repository
 
 Added online_games entity, JPA repository and transactional GameStore using the existing H2/JPA stack. Stores the complete versioned recovery record, participant IDs and completion status; supports active-game loading and completed-record lookup. Optimistic entity versions detect concurrent writes and older checkpoint timestamps are rejected.

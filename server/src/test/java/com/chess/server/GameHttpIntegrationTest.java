@@ -92,10 +92,15 @@ class GameHttpIntegrationTest {
         call(new Player(HttpClient.newHttpClient(), null), "POST", "/api/games/invitations",
                 Map.of("seconds", 60, "increment", 1), 401);
         JsonNode invite = call(host, "POST", "/api/games/invitations", Map.of("seconds", 60, "increment", 1), 200);
+        assertEquals(invite.get("code"), call(host, "GET", "/api/games/lobby", null, 200).at("/invitation/code"));
+        assertTrue(call(outsider, "GET", "/api/games/lobby", null, 200).get("invitation").isNull());
         String room = "/api/games/invitations/" + invite.get("code").asText();
         call(host, "POST", room + "/join", null, 400);
         JsonNode joined = call(guest, "POST", room + "/join", null, 200);
         String game = "/api/games/" + joined.get("id").asText();
+        JsonNode restoredLobby = call(host, "GET", "/api/games/lobby", null, 200);
+        assertEquals(joined.get("id"), restoredLobby.at("/game/id"));
+        assertTrue(restoredLobby.get("invitation").isNull());
         call(outsider, "GET", game, null, 403);
         call(outsider, "GET", game + "/players", null, 403);
         JsonNode names = call(host, "GET", game + "/players", null, 200);

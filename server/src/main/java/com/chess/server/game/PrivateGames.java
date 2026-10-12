@@ -6,19 +6,33 @@ import java.util.*;
 import com.chess.server.game.persistence.GameStore;
 import org.springframework.beans.factory.annotation.Autowired;
 
-/** Single-process registry; durable storage and restart recovery are still required. */
+/** Single-process game registry backed by durable checkpoints. Waiting rooms remain transient. */
 @Service
 public class PrivateGames {
     public record Invitation(UUID code, UUID host, int seconds, int increment, Instant expiresAt, UUID gameId) {}
+    public record Lobby(GameSession.Snapshot game, Invitation invitation) {}
+    public synchronized Lobby lobby(UUID player) {
+        var game = active(player);
+        if (game != null) return new Lobby(game, null);
+        Instant now = Instant.now();
+        var waiting = invitations.values().stream().filter(invite -> invite.host().equals(player)
+                && invite.gameId() == null && invite.expiresAt().isAfter(now)).findFirst().orElse(null);
+        return new Lobby(null, waiting);
+    }
     private final Map<UUID, Invitation> invitations = new HashMap<>();
     private final Map<UUID, GameSession> games = new HashMap<>();
     private final Map<UUID, UUID> activeByPlayer = new HashMap<>();
     private GameStore store;
     private final Set<UUID> persistedFinished = new HashSet<>();
+    private final Map<UUID, Long> finishedSince = new HashMap<>();
 
     @Autowired
     public PrivateGames(GameStore store) {
-        this(System::nanoTime);
+        this(store, System::nanoTime);
+    }
+
+    PrivateGames(GameStore store, java.util.function.LongSupplier monotonic) {
+        this(monotonic);
         this.store = store;
         long now = System.currentTimeMillis();
         for (GameSession.Saved saved : store.active()) {
@@ -38,7 +52,39 @@ public class PrivateGames {
         if (store == null) return;
         var saved = game.save(System.currentTimeMillis());
         store.save(saved);
-        if (saved.result() != null) persistedFinished.add(saved.id());
+        if (saved.result() != null) {
+            persistedFinished.add(saved.id());
+            finishedSince.putIfAbsent(saved.id(), monotonic.getAsLong());
+            activeByPlayer.remove(saved.white(), saved.id());
+            activeByPlayer.remove(saved.black(), saved.id());
+        }
+    }
+
+    @org.springframework.scheduling.annotation.Scheduled(fixedDelay = 1000, initialDelay = 1000)
+    public synchronized void maintain() {
+        long now = monotonic.getAsLong();
+        Instant wallTime = Instant.now();
+        queue.values().removeIf(entry -> now - entry.seenAt() >= 30_000_000_000L);
+        invitations.values().removeIf(invite -> !invite.expiresAt().isAfter(wallTime));
+        for (var entry : games.entrySet()) {
+            if (persistedFinished.contains(entry.getKey())) continue;
+            var saved = entry.getValue().save(System.currentTimeMillis());
+            if (saved.result() != null) {
+                persist(entry.getValue());
+                activeByPlayer.remove(saved.white(), saved.id());
+                activeByPlayer.remove(saved.black(), saved.id());
+            }
+        }
+        // Keep a fifteen-minute rematch window; durable completed records remain queryable.
+        var expired = finishedSince.entrySet().stream()
+                .filter(entry -> now - entry.getValue() >= 900_000_000_000L)
+                .map(Map.Entry::getKey).toList();
+        for (UUID id : expired) {
+            games.remove(id);
+            persistedFinished.remove(id);
+            finishedSince.remove(id);
+            rematches.remove(id);
+        }
     }
 
     public synchronized GameSession.Snapshot state(UUID id, UUID player) {
@@ -51,25 +97,27 @@ public class PrivateGames {
     public synchronized GameSession.Snapshot change(UUID id, java.util.function.Function<GameSession, GameSession.Snapshot> operation) {
         GameSession game = get(id);
         var before = game.save(System.currentTimeMillis());
-        GameSession.Snapshot result = operation.apply(game);
-        try { persist(game); }
+        try {
+            GameSession.Snapshot result = operation.apply(game);
+            persist(game);
+            return result;
+        }
         catch (RuntimeException failure) {
             games.put(id, GameSession.restore(before, System.currentTimeMillis()));
             throw failure;
         }
-        return result;
     }
     public record Rematch(UUID requestedBy, UUID gameId) {}
     private final Map<UUID, Rematch> rematches = new HashMap<>();
 
     public synchronized Rematch rematchStatus(UUID id, UUID player) {
-        get(id).snapshot(player);
+        state(id, player);
         return rematches.getOrDefault(id, new Rematch(null, null));
     }
 
     public synchronized Rematch requestRematch(UUID id, UUID player) {
         GameSession old = get(id);
-        GameSession.Snapshot previous = old.snapshot(player);
+        GameSession.Snapshot previous = state(id, player);
         if (previous.result() == null) throw new IllegalStateException("Finish the game before requesting a rematch.");
         Rematch existing = rematches.get(id);
         if (existing != null && existing.gameId() != null) return existing;
@@ -168,7 +216,7 @@ public class PrivateGames {
     public synchronized GameSession.Snapshot join(UUID code, UUID player) {
         Invitation invite = invitation(code);
         if (invite.host().equals(player)) throw new IllegalArgumentException("You cannot join your own invitation.");
-        if (invite.gameId() != null) return get(invite.gameId()).snapshot(player);
+        if (invite.gameId() != null) return state(invite.gameId(), player);
         requireAvailable(invite.host());
         requireAvailable(player);
         GameSession game = new GameSession(invite.host(), player, invite.seconds(), invite.increment());
@@ -203,7 +251,10 @@ public class PrivateGames {
             if (saved.isPresent()) {
                 game = GameSession.restore(saved.get(), System.currentTimeMillis());
                 games.put(id, game);
-                if (saved.get().result() != null) persistedFinished.add(id);
+                if (saved.get().result() != null) {
+                    persistedFinished.add(id);
+                    finishedSince.putIfAbsent(id, monotonic.getAsLong());
+                }
             }
         }
         if (game == null) throw new NoSuchElementException("Game not found.");

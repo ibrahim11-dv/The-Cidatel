@@ -7,6 +7,8 @@ import { TIME_CONTROLS } from '../lib/localGame'
 import { ChessBoard } from '../components/ChessBoard'
 import { MoveLedger, CapturedPieces } from '../components/MoveLedger'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { OnlineClock } from '../components/OnlineClock'
+import { onlineRecord, onlineReview } from '../lib/onlineRecord'
 
 export function OnlinePage() {
   const { session } = useSession()
@@ -31,10 +33,11 @@ function PrivateTable({ account }) {
   const [confirm, setConfirm] = useState(false)
   const [flip, setFlip] = useState(false)
   const [intendedMove, setIntendedMove] = useState('')
+  const [review, setReview] = useState(null)
   useEffect(() => { setIntendedMove('') }, [game?.fen])
   const version = useRef(0)
   const pending = useRef(false)
-  const accept = (state) => { setSearching(false); setGame(state); setId(state.id); localStorage.setItem(key, state.id); setConnected(true) }
+  const accept = (state) => { setSearching(false); setGame({ ...state, receivedAt: performance.now() }); setId(state.id); localStorage.setItem(key, state.id); setConnected(true) }
   useEffect(() => {
     setPlayers(null)
     if (!id) return
@@ -45,14 +48,21 @@ function PrivateTable({ account }) {
   }, [id])
   useEffect(() => {
     let cancelled = false
-    gameApi.active().then((state) => {
-      if (!cancelled && state) accept(state)
+    gameApi.lobby().then((state) => {
+      if (cancelled) return
+      if (state.game) accept(state.game)
+      else if (state.invitation) {
+        localStorage.removeItem(key)
+        setId('')
+        setRoom(state.invitation)
+        setControl(`${state.invitation.seconds / 60}+${state.invitation.increment}`)
+      }
     }).catch((error) => { if (!cancelled) setNotice(error.message) })
       .finally(() => { if (!cancelled) setCheckingActive(false) })
     return () => { cancelled = true }
   }, [])
   useEffect(() => {
-    if (!id && !room && !searching) return
+    if (checkingActive || (!id && !room && !searching)) return
     let cancelled = false, timer
     async function sync() {
       if (pending.current) { timer = setTimeout(sync, 750); return }
@@ -79,13 +89,16 @@ function PrivateTable({ account }) {
           setConnected(true)
         }
       } catch (error) {
-        if (!cancelled && current === version.current) { setConnected(false); setNotice(error.message) }
+        if (!cancelled && current === version.current) {
+          setConnected(false); setNotice(error.message)
+          if (room && !id && error.status === 404) setRoom(null)
+        }
       }
       if (!cancelled) timer = setTimeout(sync, 750)
     }
     sync()
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [id, room?.code, searching, control])
+  }, [id, room?.code, searching, control, checkingActive])
   async function action(work) {
     if (pending.current || checkingActive) return
     pending.current = true
@@ -98,18 +111,26 @@ function PrivateTable({ account }) {
     if (offer.gameId) { accept(await gameApi.state(offer.gameId)); setRematch(null); setFlip(false) }
     else setRematch(offer)
   }
-  const history = useMemo(() => {
-    const chess = new Chess()
-    for (const move of game?.moves || []) chess.move({ from: move.slice(0, 2), to: move.slice(2, 4), ...(move[4] ? { promotion: move[4] } : {}) })
-    return chess.history({ verbose: true })
-  }, [game?.moves?.join(',')])
+  const record = useMemo(() => onlineRecord(game?.moves, game?.result, players), [game?.moves?.join(','), game?.result?.score, players])
+  const history = record.history
+  const reviewing = review?.id === game?.id && review != null
+  const displayed = onlineReview(record, reviewing ? review.ply : null)
+  const selectPly = (ply) => setReview({ id: game.id, ply })
+  function exportGame(kind) {
+    const text = kind === 'fen' ? displayed.fen : record.pgn
+    const url = URL.createObjectURL(new Blob([text], { type: kind === 'pgn' ? 'application/x-chess-pgn' : 'text/plain' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `the-citadel-${game.id}.${kind}`
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
   const white = game?.white === account.id
   const flipped = flip !== !white
   const myTurn = game && new Chess(game.fen).turn() === (white ? 'w' : 'b')
   const claimMoves = useMemo(() => game ? new Chess(game.fen).moves({ verbose: true }) : [], [game?.fen])
   function clock(side) {
-    const seconds = Math.ceil(game.clocks[`${side}Millis`] / 1000)
-    return <div className="player-strip"><span>{side} · {players?.[side] || ((side === 'white') === white ? account.username : 'Opponent')}</span><strong aria-label={`${side} clock`} className={`chess-clock ${game.clocks.running === side.toUpperCase() ? 'running' : ''}`}>{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</strong></div>
+    return <div className="player-strip"><span>{side} · {players?.[side] || ((side === 'white') === white ? account.username : 'Opponent')}</span><OnlineClock clocks={game.clocks} side={side} receivedAt={game.receivedAt} finished={!!game.result} /></div>
   }
   return <section className="online-page">
     <header className="page-heading"><p className="eyebrow">The online room</p><h1>Play online</h1><p>{game ? connected ? 'Connected · synchronized with the server' : 'Reconnecting…' : 'Find an opponent or invite a friend. Private-game hosts play White.'}</p></header>
@@ -117,13 +138,26 @@ function PrivateTable({ account }) {
     {checkingActive && <p role="status">Checking for an active game…</p>}
     {game ? <div className="game-layout"><div>
       {clock(flipped ? 'white' : 'black')}
-      <ChessBoard fen={game.fen} flipped={flipped} lastMove={history.at(-1)} interactive={connected && !busy && !game.result && myTurn} onMove={(move) => action(async () => accept(await gameApi.move(id, { commandId: crypto.randomUUID(), expectedPly: game.moves.length, move: `${move.from}${move.to}${move.promotion || ''}` })))} />
-      {clock(flipped ? 'black' : 'white')}<CapturedPieces history={history} />
+      {reviewing && <p role="status">Reviewing move {displayed.ply} of {history.length}.{!game.result && ' The live clocks continue.'}</p>}
+      <ChessBoard fen={reviewing ? displayed.fen : game.fen} flipped={flipped} lastMove={displayed.lastMove} interactive={!reviewing && connected && !busy && !game.result && myTurn} onMove={(move) => action(async () => accept(await gameApi.move(id, { commandId: crypto.randomUUID(), expectedPly: game.moves.length, move: `${move.from}${move.to}${move.promotion || ''}` })))} />
+      {clock(flipped ? 'black' : 'white')}<CapturedPieces history={displayed.history} />
     </div><aside className="game-panel"><h2>{game.result ? `${game.result.score} · ${game.result.reason}` : myTurn ? 'Your move' : 'Opponent to move'}</h2>
       <button className="quiet-button" onClick={() => setFlip(!flip)}>Flip board</button>
       {!game.result && <button className="quiet-button" disabled={busy || !connected} onClick={() => setConfirm(true)}>Resign</button>}
       {!game.result && (game.drawOfferedBy ? game.drawOfferedBy === account.id ? <p role="status">Draw offered. Waiting for your opponent.</p> : <div role="group" aria-label="Opponent draw offer"><p>Your opponent offers a draw.</p><button className="primary-button" disabled={busy || !connected} onClick={() => action(async () => accept(await gameApi.respondToDraw(id, true)))}>Accept draw</button><button className="quiet-button" disabled={busy || !connected} onClick={() => action(async () => accept(await gameApi.respondToDraw(id, false)))}>Decline draw</button></div> : <button className="quiet-button" disabled={busy || !connected} onClick={() => action(async () => accept(await gameApi.offerDraw(id)))}>Offer draw</button>)}
-      <MoveLedger history={history} />
+      <MoveLedger history={history} activePly={reviewing ? displayed.ply : null} onSelect={selectPly} />
+      <div className="replay-controls" aria-label="Game review">
+        <button onClick={() => selectPly(0)} disabled={!displayed.ply}>First</button>
+        <button onClick={() => selectPly(displayed.ply - 1)} disabled={!displayed.ply}>Previous</button>
+        <span>{displayed.ply} / {history.length}</span>
+        <button onClick={() => selectPly(displayed.ply + 1)} disabled={displayed.ply === history.length}>Next</button>
+        <button onClick={() => setReview(null)} disabled={!reviewing}>{game.result ? 'Final position' : 'Live position'}</button>
+      </div>
+      <details className="position-tools"><summary>Position & game files</summary>
+        <p>PGN contains the full game record. FEN contains the displayed position.</p>
+        <button className="quiet-button" onClick={() => exportGame('pgn')}>Export PGN</button>
+        <button className="quiet-button" onClick={() => exportGame('fen')}>Export FEN</button>
+      </details>
       {!game.result && <details><summary>Claim a rule-based draw</summary><p>Claim threefold repetition or the fifty-move rule in this position, or announce the move that would meet the rule. An announced move is not played.</p><label htmlFor="claim-move">Position to check</label><select id="claim-move" value={intendedMove} disabled={!myTurn || busy} onChange={(event) => setIntendedMove(event.target.value)}><option value="">Current position</option>{claimMoves.map((move) => <option key={move.lan} value={`${move.from}${move.to}${move.promotion || ''}`}>After {move.san}</option>)}</select><button className="quiet-button" disabled={busy || !connected || !myTurn} onClick={() => action(async () => accept(await gameApi.claimDraw(id, game.moves.length, intendedMove)))}>Submit draw claim</button></details>}
       {game.result && <div aria-label="Rematch controls">
         {rematch?.requestedBy === account.id ? <p role="status">Rematch requested. Waiting for your opponent.</p> : <button className="primary-button" disabled={busy || !connected} onClick={() => action(() => rematchAction())}>{rematch?.requestedBy ? 'Accept rematch' : 'Request rematch'}</button>}
