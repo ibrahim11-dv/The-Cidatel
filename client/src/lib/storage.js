@@ -11,6 +11,20 @@ export const DEFAULT_PREFERENCES = {
   pieceTone: 'ivory',
 }
 
+export function getGuestPreferences() {
+  const saved = localRead('citadel:guest-pieces', {})
+  return {
+    ...DEFAULT_PREFERENCES,
+    pieceStyle: ['classic', 'modern', 'manuscript'].includes(saved?.pieceStyle) ? saved.pieceStyle : 'classic',
+    pieceTone: ['ivory', 'ebony', 'brass'].includes(saved?.pieceTone) ? saved.pieceTone : 'ivory',
+  }
+}
+
+export function saveGuestPreferences(preferences) {
+  // Let the caller report a failed save while retaining its in-memory preview.
+  window.localStorage.setItem('citadel:guest-pieces', JSON.stringify(preferences))
+}
+
 function read(store, key, fallback) {
   try {
     const value = store.getItem(key)

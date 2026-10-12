@@ -14,8 +14,27 @@ export const THEMES = [
 export function readTheme() {
   try { return localStorage.getItem('citadel:theme') || 'walnut' } catch { return 'walnut' }
 }
-export function applyTheme(id) {
+export const CUSTOM_COLORS = [
+  ['--paper', 'Background'], ['--sidebar', 'Sidebar'], ['--paper-light', 'Panels'],
+  ['--ink', 'Text'], ['--brass', 'Accent'], ['--button', 'Buttons'],
+  ['--wood-light', 'Light squares'], ['--wood-dark', 'Dark squares'],
+  ['--selected', 'Selected square'], ['--legal', 'Legal moves'], ['--last-move', 'Last move'],
+]
+export function normalizeColors(value) {
+  return Object.fromEntries(CUSTOM_COLORS.filter(([key]) => /^#[0-9a-f]{6}$/i.test(value?.[key] || '')).map(([key]) => [key, value[key]]))
+}
+export function readCustomColors() {
+  try { return normalizeColors(JSON.parse(localStorage.getItem('citadel:custom-colors'))) } catch { return {} }
+}
+export function saveCustomColors(value) {
+  try { localStorage.setItem('citadel:custom-colors', JSON.stringify(normalizeColors(value))); return true } catch { return false }
+}
+export function themeColors(id, overrides = {}) {
   const theme = THEMES.find((item) => item.id === id) || THEMES[0]
-  Object.entries(theme.colors).forEach(([key, value]) => document.documentElement.style.setProperty(key, value))
+  return { ...theme.colors, '--button': theme.colors['--brass'], '--selected': '#3c6540', '--legal': '#271b0e', '--last-move': '#efcd77', ...normalizeColors(overrides) }
+}
+export function applyTheme(id, overrides = readCustomColors()) {
+  const theme = THEMES.find((item) => item.id === id) || THEMES[0]
+  Object.entries(themeColors(id, overrides)).forEach(([key, value]) => document.documentElement.style.setProperty(key, value))
   document.documentElement.dataset.theme = theme.id
 }

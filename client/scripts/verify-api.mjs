@@ -11,6 +11,10 @@ const login = () => authApi.login({ identifier: 'test', password: 'test-only' })
 try {
   globalThis.fetch = async () => ({ ok: false, status: 409, json: async () => ({ message: 'Conflict' }) })
   await assert.rejects(login(), (error) => error instanceof ApiError && error.status === 409 && error.message === 'Conflict')
+  globalThis.fetch = async () => ({ ok: false, status: 500, json: async () => ({ error: 'Internal Server Error' }) })
+  await assert.rejects(login(), (error) => error.status === 500 && error.message.includes('server encountered a problem'))
+  globalThis.fetch = async () => ({ ok: false, status: 401, json: async () => ({ message: 'Invalid credentials' }) })
+  await assert.rejects(login(), (error) => error.status === 401 && error.message === 'Invalid credentials')
   globalThis.fetch = (_, { signal }) => new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(new Error('aborted'))))
   const headersStalled = login()
   const headersCheck = assert.rejects(headersStalled, /too long/)
@@ -24,7 +28,7 @@ try {
   await bodyCheck
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ recovered: true }) })
   assert.deepEqual(await login(), { recovered: true })
-  assert.equal(cleared, 4)
+  assert.equal(cleared, 6)
   console.log('Passed HTTP error preservation, stalled headers/body timeout, timer cleanup and subsequent recovery.')
 } finally {
   globalThis.fetch = originalFetch

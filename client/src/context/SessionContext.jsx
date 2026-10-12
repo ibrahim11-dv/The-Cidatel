@@ -5,6 +5,8 @@ import {
   getSession,
   saveAuthenticatedSession,
   updateSavedSession,
+  getGuestPreferences,
+  saveGuestPreferences,
 } from '../lib/storage'
 import { accountApi, authApi } from '../lib/api'
 import { readBoardOptions, normalizeBoardOptions, saveBoardOptions } from '../lib/boardOptions'
@@ -14,6 +16,7 @@ const SessionContext = createContext(null)
 export function SessionProvider({ children }) {
   const [session, setSession] = useState(() => getSession())
   const [boardOptions, setBoardOptions] = useState(readBoardOptions)
+  const [guestPreferences, setGuestPreferences] = useState(getGuestPreferences)
 
   useEffect(() => {
     if (!session) return undefined
@@ -43,7 +46,7 @@ export function SessionProvider({ children }) {
       setBoardOptions(next)
       return saveBoardOptions(next)
     },
-    preferences: session?.preferences || DEFAULT_PREFERENCES,
+    preferences: session?.preferences || guestPreferences,
     async register(details) {
       if (details.password !== details.confirmPassword) {
         throw new Error('The passwords do not match.')
@@ -79,6 +82,13 @@ export function SessionProvider({ children }) {
       return next
     },
     async setPreferences(patch) {
+      if (!session) {
+        const next = { ...guestPreferences, ...patch }
+        setGuestPreferences(next)
+        try { saveGuestPreferences(next) }
+        catch { throw new Error('Pieces applied, but browser storage is unavailable.') }
+        return next
+      }
       const account = await accountApi.updateAppearance({ ...session.preferences, ...patch })
       const next = updateSavedSession(account)
       setSession(next)

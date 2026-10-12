@@ -1,5 +1,15 @@
 import assert from 'node:assert/strict'
 import { readAuthForm } from '../src/lib/authForm.js'
+import { signInDestination, safeReturnPath } from '../src/lib/authRedirect.js'
+
+const invitedPath = '/online?invite=7ee6f2f3-811f-4f66-a08e-81b5f88d5e59'
+const loginPath = signInDestination({ pathname: '/online', search: invitedPath.slice(7), hash: '#join' })
+const returnPath = new URLSearchParams(loginPath.split('?')[1]).get('next')
+assert.equal(safeReturnPath(returnPath), `${invitedPath}#join`)
+assert.equal(signInDestination({ pathname: '/online' }), '/login?next=%2Fonline')
+for (const unsafe of [null, '', 'https://example.test', '//example.test', '/\\example.test', '/\n/example.test']) {
+  assert.equal(safeReturnPath(unsafe), '/profile')
+}
 
 const localValues = new Map()
 const sessionValues = new Map()
@@ -22,6 +32,8 @@ const {
   getSession,
   saveAuthenticatedSession,
   updateSavedSession,
+  getPuzzleProgress,
+  markPuzzleComplete,
 } = await import('../src/lib/storage.js')
 
 const firstSession = saveAuthenticatedSession({
@@ -50,6 +62,12 @@ assert.deepEqual(appearanceSession.preferences, { boardTheme: 'forest', pieceSty
 clearSession()
 assert.equal(getSession(), null)
 assert.equal(getAccessToken(), null)
+assert.deepEqual(markPuzzleComplete('guest', 'quiet-crown'), ['quiet-crown'])
+assert.deepEqual(markPuzzleComplete('guest', 'quiet-crown'), ['quiet-crown'])
+assert.deepEqual(getPuzzleProgress('account-1'), [])
+markPuzzleComplete('account-1', 'eighth-rank')
+assert.deepEqual(getPuzzleProgress('guest'), ['quiet-crown'])
+assert.deepEqual(getPuzzleProgress('account-1'), ['eighth-rank'])
 
 const browserFormValues = readAuthForm([
   ['username', '  club_member  '],

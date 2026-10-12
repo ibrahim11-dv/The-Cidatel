@@ -1,14 +1,32 @@
 import { useState } from 'react'
 import { ChessBoard } from '../components/ChessBoard'
 import { STARTING_FEN } from '../lib/chess'
-import { THEMES, applyTheme, readTheme } from '../lib/themes'
+import { THEMES, applyTheme, readTheme, CUSTOM_COLORS, readCustomColors, saveCustomColors, themeColors } from '../lib/themes'
 import { useSession } from '../context/SessionContext'
 import { DEFAULT_BOARD_OPTIONS } from '../lib/boardOptions'
 import { unlockSound, playSound } from '../lib/sound'
+import { colorContrastIssues } from '../lib/colorContrast'
 
 export function SettingsPage() {
-  const { boardOptions, updateBoardOptions } = useSession()
+  const { session, preferences, setPreferences, boardOptions, updateBoardOptions } = useSession()
+  const [savingPieces, setSavingPieces] = useState(false)
+  async function choosePieces(patch) {
+    setSavingPieces(true)
+    try {
+      await setPreferences(patch)
+      setNotice(session ? 'Piece preferences saved to your account.' : 'Piece preferences saved on this browser.')
+    } catch (error) { setNotice(error.message) }
+    finally { setSavingPieces(false) }
+  }
   const [theme, setTheme] = useState(readTheme)
+  const [custom, setCustom] = useState(readCustomColors)
+  const colors = themeColors(theme, custom)
+  const contrastIssues = colorContrastIssues(colors)
+  function customize(value) {
+    setCustom(value)
+    applyTheme(theme, value)
+    setNotice(saveCustomColors(value) ? 'Custom colors saved on this browser.' : 'Colors applied but browser storage is unavailable.')
+  }
   const [notice, setNotice] = useState('Saved on this browser, including for guests.')
   function choose(id) {
     applyTheme(id)
@@ -26,7 +44,16 @@ export function SettingsPage() {
         <span className="theme-swatch" style={{ background: item.colors['--paper'] }}><i style={{ background: item.colors['--wood-light'] }} /><i style={{ background: item.colors['--wood-dark'] }} /><i style={{ background: item.colors['--brass'] }} /></span><b>{item.name}</b>
       </button>)}</div><p role="status" className="small-note">{notice}</p><button className="quiet-button" onClick={() => choose('walnut')}>Reset to Classic Walnut</button></div>
     </div>
+    <section className="board-settings" aria-label="Custom colors"><h2>Make it yours</h2>
+      <p>Custom colors stay applied when you change presets. Reset them to see the original palette. Choose contrasting text and background colors.</p>
+      {CUSTOM_COLORS.map(([key, label]) => <label key={key}>{label}<input type="color" value={colors[key]} onChange={(event) => customize({ ...custom, [key]: event.target.value })} /></label>)}
+      <div role="status">{contrastIssues.length ? <><p>Some text may be hard to read. Aim for at least 4.5:1 contrast for normal text.</p><ul>{contrastIssues.map(({ label, ratio }) => <li key={label}>{label}: {ratio.toFixed(2)}:1</li>)}</ul></> : <p>Main text and button colors meet the 4.5:1 contrast target.</p>}</div>
+      <p className="small-note">This checks solid text colors, not every board marker, texture or interaction state.</p>
+      <button className="quiet-button" onClick={() => customize({})}>Reset custom colors</button>
+    </section>
     <section className="board-settings" aria-label="Board preferences"><h2>At the board</h2>
+      <label>Piece rendering<select value={preferences.pieceStyle} disabled={savingPieces} onChange={(event) => choosePieces({ pieceStyle: event.target.value })}><option value="classic">Classic outline</option><option value="modern">Fine outline</option><option value="manuscript">Bold outline</option></select></label>
+      <label>Piece tone<select value={preferences.pieceTone} disabled={savingPieces} onChange={(event) => choosePieces({ pieceTone: event.target.value })}><option value="ivory">Ivory</option><option value="ebony">Ebony</option><option value="brass">Brass</option></select></label>
       <label><input type="checkbox" checked={boardOptions.coordinates} onChange={(event) => option({ coordinates: event.target.checked })} /> Board coordinates</label>
       <label><input type="checkbox" checked={boardOptions.legalMoves} onChange={(event) => option({ legalMoves: event.target.checked })} /> Show legal moves</label>
       <label><input type="checkbox" checked={boardOptions.sound} onChange={(event) => option({ sound: event.target.checked })} /> Move and game sounds</label>

@@ -1,5 +1,89 @@
 # The Citadel — implementation checkpoint
 
+## 12 October 2026: custom-color contrast feedback
+
+Settings now calculates contrast for main text against background/sidebar/panels and for primary-button text. Color changes immediately identify combinations below the 4.5:1 normal-text target, with measured ratios. The interface explicitly limits this check to solid colors; it is not a full accessibility certification.
+
+Black/white, identical-color, symmetry and low-contrast detection checks pass; production build passes. Visual inspection, muted text/hover/board-marker checks and the remaining accessibility work are still pending. Files: client/src/lib/colorContrast.js and client/src/pages/SettingsPage.jsx.
+
+Commit message: feat(settings): show contrast feedback for custom colors
+
+## 12 October 2026: custom appearance colors
+
+Added eleven labeled color pickers to Settings for background, sidebar, panels, text, accent, buttons, board squares and selected/legal/last-move highlights. Reused centralized theme tokens and shared board styles. Overrides apply immediately, persist in browser storage, restore before rendering through the existing startup theme call, and can be reset independently. Overrides deliberately remain applied across preset changes, as explained in the UI. Only known tokens with six-digit hex values are accepted.
+
+Production build and focused palette-override/invalid-value checks pass. Visual browser QA, contrast validation and authenticated server persistence remain incomplete. Files: client/src/lib/themes.js, client/src/pages/SettingsPage.jsx, client/src/styles.css.
+
+Commit message: feat(settings): add persistent custom interface and board colors
+
+## 12 October 2026: consistent timeout snapshots and checkpoints
+
+Fixed a clock-read boundary race: timeout could occur between the initial adjudication check and the later clock read used for a response/checkpoint, leaving an expired clock paired with a null game result. GameSession now adjudicates from that final clock sample before constructing the response or saved record. Finished checkpoints retain the stopped clock state.
+
+Fourteen clock/session/recovery tests pass, including two new deterministic tests crossing the exact expiry boundary between reads and restoring the resulting checkpoint. No frontend changes. Remaining full-platform requirements and broader browser acceptance remain open.
+
+Commit message: fix(server): adjudicate timeout from final snapshot and checkpoint clocks
+
+## 12 October 2026: local puzzle attempt statistics
+
+Added attempted/solved totals, explicitly labeled unassisted success rate, current streak and best streak. Attempts begin on the first legal move, hint or reveal; retry creates a new attempt. Wrong answers and hints break the clean streak, but a later solve still counts as solved. Revealed solutions never count as solved; duplicate completion within an attempt is ignored. Beginning a new attempt after abandoning one breaks the streak. Existing completion marks remain intact and are not converted into invented attempt history.
+
+Statistics are stored separately per guest/account in this browser, with in-memory fallback if storage fails. Targeted tests pass for duplicates, mistakes, hints, reveals, abandonment, persistence, corrupt storage and account isolation; production build passes. Browser acceptance, concurrent-tab reconciliation, account database persistence, difficulty progression and dataset expansion remain open.
+
+Files: client/src/lib/puzzleStats.js, client/src/pages/PuzzlesPage.jsx, client/scripts/verify-puzzle-stats.mjs, client/package.json.
+
+Commit message: feat(puzzles): track local attempts success and unassisted streaks
+
+## 12 October 2026: accept alternative final checkmates in puzzles
+
+Extracted puzzle-answer validation and connected it to the study board. When the final stored move is checkmate, another legal move that actually checkmates is accepted. Earlier moves still require the supplied line; this does not claim to solve alternative multi-move branches.
+
+The data verifier enumerates every legal move in the five mate-in-one studies, accepts exactly the checkmates (including two alternatives previously rejected), and rejects non-mates. All six stored lines and out-of-range completion checks pass; production build passes. Browser acceptance, licensed dataset expansion, general alternate branches, richer progress and account database persistence remain open.
+
+Files: client/src/lib/puzzleAnswer.js, client/src/pages/PuzzlesPage.jsx, client/scripts/verify-game-data.mjs.
+
+Commit message: fix(puzzles): accept alternative legal checkmates
+
+## 12 October 2026: guest puzzle access and learning controls
+
+Removed the puzzle route's authentication requirement and keyed its study state by guest/account identity. Reused the existing storage functions to keep guest completions separate from each account's local completions. Added Show solution, Retry puzzle and Next puzzle; revealing a solution does not mark completion and disables board input until retry. Hints disable after completion. Multi-turn solutions now append move history rather than replacing previous turns. Feedback uses a live status region and the page explicitly describes its current browser-local persistence.
+
+Auth/storage checks pass with guest/account isolation and duplicate-completion assertions; all six existing puzzle positions validate; production build passes. Browser controls still need acceptance testing. Licensed dataset expansion, alternate correct solutions, richer statistics, difficulty progression and authenticated database persistence remain incomplete.
+
+Files: client/src/App.jsx, client/src/pages/PuzzlesPage.jsx, client/scripts/verify-auth.mjs.
+
+Commit message: feat(puzzles): enable guest play and add solution retry and next controls
+
+## 12 October 2026: preserve invitations through authentication
+
+Fixed RequireSession dropping the invitation query when redirecting guests to sign-in. A shared authRedirect helper preserves pathname, query and fragment; LoginPage uses its validated app-relative return path after sign-in or registration. Existing links between login and registration already preserve the query. Protocol-relative URLs, backslashes and literal whitespace/control characters fall back to the profile.
+
+The auth verifier passes with invitation-return and unsafe-return regression checks; production client build passes. Full browser invitation-through-authentication acceptance remains pending. Modified App.jsx, LoginPage.jsx, added lib/authRedirect.js and extended scripts/verify-auth.mjs. The overall platform goal remains active.
+
+Commit message: fix(auth): preserve online invitations through sign-in and registration
+
+## 12 October 2026: preserve unexpected server error status
+
+Fixed the error exposed during browser QA: Spring Security now permits only internal ERROR dispatches so an unexpected failure dispatched to /error retains its original status instead of becoming an authentication error. Direct requests to /error and protected endpoints still require authentication. The existing client request helper now supplies a useful server-failure message when a 5xx response lacks a message, reminding players to reconnect and check whether an action was received.
+
+Three targeted backend tests pass, including a real embedded-server HTTP failure, protected-endpoint access checks, and the existing account registration/login flow. The client API verifier passes with new 500/401 distinctions and existing timeout/recovery checks. Production build passes. No browser fault injection was performed for this fix; remaining multiplayer and full-platform acceptance remain open.
+
+Files: server/src/main/java/com/chess/server/security/SecurityConfiguration.java, server/src/test/java/com/chess/server/ErrorDispatchIntegrationTest.java, client/src/lib/api.js, client/scripts/verify-api.mjs.
+
+Commit message: fix(api): preserve server failures instead of reporting authentication errors
+
+## 12 October 2026: real browser online workflow verification
+
+Used two separately authenticated browser tabs on localhost and 127.0.0.1, talking to the actual Spring server (no mocked gameplay). Created a private invitation, joined as a second account, played e4/e5 through board clicks and observed both move lists and boards synchronize. Reloading the second tab restored the position, names and clock readings. Selecting First in review restored the initial board and ignored attempted board moves while the live clock continued. Downloaded FEN was read from disk and exactly matched the standard starting position.
+
+The download observation took unusually long, during which White's live clock expired. Both clients reported the same 0-1 timeout. Requested and accepted a rematch, verified swapped colors and reset clocks/board/review, then resigned through the confirmation dialog. Both clients displayed 0-1 resignation. Screenshot: citadel-online-rematch-proof.png.
+
+Environment issue found: the old disposable H2 memory database lost its schema after a long idle interval. Restarted only that test server with DB_CLOSE_DELAY=-1; the user's file database was untouched. Unexpected database errors were misleadingly displayed as authentication failures; error-dispatch handling needs a follow-up fix.
+
+These were isolated origin sessions in one browser product, not two separate browsers. Full cross-browser acceptance, deliberate network interruption, PGN browser download, and remaining mode/polish requirements are still open. Current test services: frontend session 80563, backend session 43535 (revalidate before reuse).
+
+Commit message: docs(qa): record online synchronization review and rematch browser checks
+
 ## 12 October 2026: online move review and file exports
 
 OnlinePage now reuses ChessBoard, MoveLedger and the existing replay-control styling to inspect earlier positions, navigate from the starting position to the latest move, and return to live play. Review disables board moves while server clocks and polling continue. Captures and last-move highlights follow the selected position; review state is scoped to a game ID so rematches return to live play. Download controls export the complete PGN with player names and the authoritative result, or the displayed position as FEN. The new onlineRecord helper reconstructs standard-start online histories with chess.js.

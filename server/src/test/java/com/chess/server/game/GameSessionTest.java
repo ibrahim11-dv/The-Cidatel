@@ -8,6 +8,31 @@ import static org.junit.jupiter.api.Assertions.*;
 class GameSessionTest {
     private final UUID white = UUID.randomUUID(), black = UUID.randomUUID();
 
+    private GameSession gameExpiringBetweenClockReads() {
+        AtomicLong reads = new AtomicLong();
+        GameClock clock = new GameClock(15, 0, () -> {
+            long read = reads.getAndIncrement();
+            return read == 0 ? 0 : read == 1 ? 14_999_999_999L : 15_000_000_000L;
+        });
+        return new GameSession(white, black, new ChessPosition(), clock);
+    }
+
+    @Test void snapshotAdjudicatesExpiryDuringItsFinalClockRead() {
+        var snapshot = gameExpiringBetweenClockReads().snapshot(white);
+        assertEquals(0, snapshot.clocks().whiteMillis());
+        assertEquals(GameClock.Side.WHITE, snapshot.clocks().expired());
+        assertEquals(new GameSession.Result("0-1", "timeout"), snapshot.result());
+        assertNull(snapshot.clocks().running());
+    }
+
+    @Test void checkpointAdjudicatesExpiryDuringItsFinalClockRead() {
+        var saved = gameExpiringBetweenClockReads().save(1000);
+        assertEquals(0, saved.clock().whiteNanos());
+        assertTrue(saved.clock().stopped());
+        assertEquals(new GameSession.Result("0-1", "timeout"), saved.result());
+        assertEquals(saved.result(), GameSession.restore(saved, 2000).snapshot(black).result());
+    }
+
     @Test void drawOffersRequireOpponentResponseAndMovesDeclineThem() {
         GameSession game = new GameSession(white, black, 60, 0);
         assertEquals(white, game.offerDraw(white).drawOfferedBy());

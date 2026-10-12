@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "verify:puzzle-stats": "node scripts/verify-puzzle-stats.mjs",
     "verify:online-record": "node scripts/verify-online-record.mjs",
     "verify:online-clock": "node scripts/verify-online-clock.mjs",
     "verify:api": "node scripts/verify-api.mjs",

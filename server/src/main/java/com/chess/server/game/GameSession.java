@@ -47,7 +47,10 @@ public final class GameSession {
 
     public synchronized Saved save(long nowMillis) {
         updateTimeout();
-        return new Saved(1, id, white, black, initialFen, List.copyOf(moves), clock.save(), result,
+        GameClock.Saved savedClock = clock.save();
+        updateTimeout(savedClock.expired());
+        if (result != null) savedClock = clock.save();
+        return new Saved(1, id, white, black, initialFen, List.copyOf(moves), savedClock, result,
                 drawOfferedBy, Map.copyOf(accepted), nowMillis);
     }
 
@@ -158,8 +161,11 @@ public final class GameSession {
     }
 
     private void updateTimeout() {
+        updateTimeout(clock.snapshot().expired());
+    }
+
+    private void updateTimeout(GameClock.Side expired) {
         if (result != null) return;
-        GameClock.Side expired = clock.snapshot().expired();
         if (expired == null) return;
         // Basic mating-material cases. More complex dead positions require further adjudication.
         String pieces = position.fen().split(" ")[0];
@@ -177,6 +183,8 @@ public final class GameSession {
     }
 
     private Snapshot view() {
-        return new Snapshot(id, white, black, position.fen(), List.copyOf(moves), clock.snapshot(), result, drawOfferedBy);
+        GameClock.Snapshot clocks = clock.snapshot();
+        updateTimeout(clocks.expired());
+        return new Snapshot(id, white, black, position.fen(), List.copyOf(moves), clocks, result, drawOfferedBy);
     }
 }

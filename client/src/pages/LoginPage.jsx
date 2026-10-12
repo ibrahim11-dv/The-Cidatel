@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useSession } from '../context/SessionContext'
 import { readAuthForm } from '../lib/authForm'
+import { safeReturnPath } from '../lib/authRedirect'
 
 const emptyRegistration = { username: '', email: '', password: '', confirmPassword: '' }
 const emptyLogin = { identifier: '', password: '' }
@@ -29,7 +30,7 @@ export function LoginPage({ register = false }) {
     try {
       if (register) await createAccount(details)
       else await signIn(details)
-      navigate(next.startsWith('/') ? next : '/profile', { replace: true })
+      navigate(safeReturnPath(next), { replace: true })
     } catch (issue) {
       setError(issue.message || 'We could not open your account.')
     } finally {

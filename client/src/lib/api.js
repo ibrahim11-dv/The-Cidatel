@@ -29,7 +29,9 @@ async function request(path, { method = 'GET', body, authenticated = false } = {
       if (controller.signal.aborted) throw error
       return null
     })
-    if (!response.ok) throw new ApiError(payload?.message || 'The request could not be completed.', response.status)
+    if (!response.ok) throw new ApiError(payload?.message || (response.status >= 500
+      ? 'The server encountered a problem. Reconnect to check whether your action was received.'
+      : 'The request could not be completed.'), response.status)
     return payload
   } catch (error) {
     if (error instanceof ApiError) throw error

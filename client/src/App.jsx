@@ -10,11 +10,12 @@ import { ProfilePage } from './pages/ProfilePage'
 import { GuestProfilePage } from './pages/GuestProfilePage'
 import { PuzzlesPage } from './pages/PuzzlesPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { signInDestination } from './lib/authRedirect'
 
 function RequireSession({ children }) {
   const { session } = useSession()
   const location = useLocation()
-  if (!session) return <Navigate to={`/login?next=${encodeURIComponent(location.pathname)}`} replace />
+  if (!session) return <Navigate to={signInDestination(location)} replace />
   return children
 }
 
@@ -40,7 +41,7 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<LoginPage register />} />
             <Route path="/online" element={<RequireSession><OnlinePage /></RequireSession>} />
-            <Route path="/puzzles" element={<RequireSession><PuzzlesPage /></RequireSession>} />
+            <Route path="/puzzles" element={<PuzzlesPage />} />
             <Route path="/profile" element={<PlayerProfile />} />
             <Route path="/history/:gameId" element={<HistoryPage />} />
             <Route path="*" element={<NotFound />} />
