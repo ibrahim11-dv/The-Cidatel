@@ -7,9 +7,13 @@ public final class GameSession {
     public record Result(String score, String reason) {}
     public record Snapshot(UUID id, UUID white, UUID black, String fen, List<String> moves,
                            GameClock.Snapshot clocks, Result result, UUID drawOfferedBy) {}
-    private record Accepted(UUID player, int ply, String move) {}
+    public record Accepted(UUID player, int ply, String move) {}
+    public record Saved(int version, UUID id, UUID white, UUID black, String initialFen, List<String> moves,
+                        GameClock.Saved clock, Result result, UUID drawOfferedBy,
+                        Map<UUID, Accepted> accepted, long savedAtMillis) {}
 
-    private final UUID id = UUID.randomUUID();
+    private final UUID id;
+    private final String initialFen;
     private final UUID white;
     private final UUID black;
     private final ChessPosition position;
@@ -27,12 +31,44 @@ public final class GameSession {
     }
 
     GameSession(UUID white, UUID black, ChessPosition position, GameClock clock) {
+        this(UUID.randomUUID(), white, black, position, clock, true);
+    }
+
+    private GameSession(UUID id, UUID white, UUID black, ChessPosition position, GameClock clock, boolean start) {
+        this.id = Objects.requireNonNull(id);
         this.white = Objects.requireNonNull(white);
         this.black = Objects.requireNonNull(black);
         if (white.equals(black)) throw new IllegalArgumentException("Players must be different accounts.");
         this.position = Objects.requireNonNull(position);
+        this.initialFen = position.fen();
         this.clock = Objects.requireNonNull(clock);
-        clock.start();
+        if (start) clock.start();
+    }
+
+    public synchronized Saved save(long nowMillis) {
+        updateTimeout();
+        return new Saved(1, id, white, black, initialFen, List.copyOf(moves), clock.save(), result,
+                drawOfferedBy, Map.copyOf(accepted), nowMillis);
+    }
+
+    public static GameSession restore(Saved saved, long nowMillis) {
+        return restore(saved, nowMillis, System::nanoTime);
+    }
+
+    static GameSession restore(Saved saved, long nowMillis, java.util.function.LongSupplier nanoTime) {
+        if (saved.version() != 1) throw new IllegalArgumentException("Unsupported saved-game version.");
+        GameClock clock = GameClock.restore(saved.clock(), Math.max(0, nowMillis - saved.savedAtMillis()), nanoTime);
+        GameSession game = new GameSession(saved.id(), saved.white(), saved.black(), new ChessPosition(saved.initialFen()), clock, false);
+        for (String move : saved.moves()) game.position.play(move);
+        game.moves.addAll(saved.moves());
+        game.accepted.putAll(saved.accepted());
+        game.result = saved.result();
+        game.drawOfferedBy = saved.drawOfferedBy();
+        if (game.result == null && saved.clock().running() != null && saved.clock().running() != game.position.turn()) {
+            throw new IllegalArgumentException("Saved clock and position disagree.");
+        }
+        game.updateTimeout();
+        return game;
     }
 
     public synchronized Snapshot snapshot(UUID player) {

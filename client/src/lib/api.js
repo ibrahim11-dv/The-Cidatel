@@ -68,6 +68,7 @@ export const accountApi = {
 export { ApiError }
 
 export const gameApi = {
+  claimDraw: (id, expectedPly, intendedMove) => request(`/games/${encodeURIComponent(id)}/draw/claim`, { method: 'POST', body: { expectedPly, intendedMove: intendedMove || null }, authenticated: true }),
   players: (id) => request(`/games/${encodeURIComponent(id)}/players`, { authenticated: true }),
   rematchStatus: (id) => request(`/games/${encodeURIComponent(id)}/rematch`, { authenticated: true }),
   requestRematch: (id) => request(`/games/${encodeURIComponent(id)}/rematch`, { method: 'POST', authenticated: true }),

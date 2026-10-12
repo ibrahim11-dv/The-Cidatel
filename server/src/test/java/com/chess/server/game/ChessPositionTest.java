@@ -4,6 +4,17 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ChessPositionTest {
+    @Test void fiftyMoveClaimsRespectPawnResetAndRestoreIntendedPositions() {
+        ChessPosition position = new ChessPosition("7k/8/8/8/8/8/P7/R6K w - - 99 1");
+        String before = position.fen();
+        assertNull(position.drawClaim(null));
+        assertNull(position.drawClaim("a2a3"));
+        assertEquals(before, position.fen());
+        assertEquals("fifty-move rule", position.drawClaim("h1g1"));
+        assertEquals(before, position.fen());
+        position.play("h1g1");
+        assertEquals("fifty-move rule", position.drawClaim(null));
+    }
     @Test void rejectsImpossibleMovementWithoutChangingState() {
         ChessPosition position = new ChessPosition();
         String original = position.fen();

@@ -71,6 +71,22 @@ class GameHttpIntegrationTest {
         assertTrue(next.get("result").isNull());
     }
 
+    @Test void intendedDrawClaimOverHttpRetainsTheUnplayedMove() throws Exception {
+        Player white = register(), black = register();
+        JsonNode invite = call(white, "POST", "/api/games/invitations", Map.of("seconds", 60, "increment", 0), 200);
+        JsonNode joined = call(black, "POST", "/api/games/invitations/" + invite.get("code").asText() + "/join", null, 200);
+        String path = "/api/games/" + joined.get("id").asText();
+        String[] sequence = {"g1f3", "g8f6", "f3g1", "f6g8", "g1f3", "g8f6", "f3g1"};
+        JsonNode state = joined;
+        for (int i = 0; i < sequence.length; i++) state = call(i % 2 == 0 ? white : black, "POST", path + "/moves", Map.of("commandId", UUID.randomUUID(), "expectedPly", i, "move", sequence[i]), 200);
+        Map<String, Object> claim = Map.of("expectedPly", 7, "intendedMove", "f6g8");
+        call(white, "POST", path + "/draw/claim", claim, 409);
+        JsonNode ended = call(black, "POST", path + "/draw/claim", claim, 200);
+        assertEquals(state.get("fen"), ended.get("fen"));
+        assertEquals(7, ended.get("moves").size());
+        assertEquals("threefold repetition", ended.at("/result/reason").asText());
+    }
+
     @Test void independentAuthenticatedClientsShareOnlyServerAcceptedMovesAndResults() throws Exception {
         Player host = register(), guest = register(), outsider = register();
         call(new Player(HttpClient.newHttpClient(), null), "POST", "/api/games/invitations",

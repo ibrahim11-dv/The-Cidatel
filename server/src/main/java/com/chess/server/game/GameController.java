@@ -11,6 +11,8 @@ import com.chess.server.account.application.AccountService;
 @RequestMapping("/api/games")
 public class GameController {
     public record Setup(@Min(15) @Max(10800) int seconds, @Min(0) @Max(180) int increment) {}
+    public record ClaimRequest(@Min(0) int expectedPly,
+                               @Pattern(regexp="[a-h][1-8][a-h][1-8][qrbn]?") String intendedMove) {}
     public record MoveRequest(@NotNull UUID commandId, @Min(0) int expectedPly,
                               @NotBlank @Pattern(regexp="[a-h][1-8][a-h][1-8][qrbn]?") String move) {}
     private final PrivateGames games;
@@ -19,7 +21,7 @@ public class GameController {
     public record Players(String white, String black) {}
     @GetMapping("/{id}/players")
     public Players players(Authentication auth, @PathVariable UUID id) {
-        GameSession.Snapshot state = games.get(id).snapshot(player(auth));
+        GameSession.Snapshot state = games.state(id, player(auth));
         return new Players(accounts.get(state.white()).username(), accounts.get(state.black()).username());
     }
     private UUID player(Authentication auth) { return (UUID) auth.getPrincipal(); }
@@ -54,18 +56,23 @@ public class GameController {
     @PostMapping("/invitations/{code}/join")
     public GameSession.Snapshot join(Authentication auth, @PathVariable UUID code) { return games.join(code, player(auth)); }
     @GetMapping("/{id}")
-    public GameSession.Snapshot state(Authentication auth, @PathVariable UUID id) { return games.get(id).snapshot(player(auth)); }
+    public GameSession.Snapshot state(Authentication auth, @PathVariable UUID id) { return games.state(id, player(auth)); }
     @PostMapping("/{id}/moves")
     public GameSession.Snapshot move(Authentication auth, @PathVariable UUID id, @Valid @RequestBody MoveRequest request) {
-        return games.get(id).move(player(auth), request.commandId(), request.expectedPly(), request.move());
+        return games.change(id, game -> game.move(player(auth), request.commandId(), request.expectedPly(), request.move()));
     }
     @PostMapping("/{id}/resign")
-    public GameSession.Snapshot resign(Authentication auth, @PathVariable UUID id) { return games.get(id).resign(player(auth)); }
+    public GameSession.Snapshot resign(Authentication auth, @PathVariable UUID id) { return games.change(id, game -> game.resign(player(auth))); }
 
     @PostMapping("/{id}/draw/offer")
-    public GameSession.Snapshot offerDraw(Authentication auth, @PathVariable UUID id) { return games.get(id).offerDraw(player(auth)); }
+    public GameSession.Snapshot offerDraw(Authentication auth, @PathVariable UUID id) { return games.change(id, game -> game.offerDraw(player(auth))); }
     @PostMapping("/{id}/draw/accept")
-    public GameSession.Snapshot acceptDraw(Authentication auth, @PathVariable UUID id) { return games.get(id).respondToDraw(player(auth), true); }
+    public GameSession.Snapshot acceptDraw(Authentication auth, @PathVariable UUID id) { return games.change(id, game -> game.respondToDraw(player(auth), true)); }
     @PostMapping("/{id}/draw/decline")
-    public GameSession.Snapshot declineDraw(Authentication auth, @PathVariable UUID id) { return games.get(id).respondToDraw(player(auth), false); }
+    public GameSession.Snapshot declineDraw(Authentication auth, @PathVariable UUID id) { return games.change(id, game -> game.respondToDraw(player(auth), false)); }
+    @PostMapping("/{id}/draw/claim")
+    public GameSession.Snapshot claimDraw(Authentication auth, @PathVariable UUID id, @Valid @RequestBody ClaimRequest request) {
+        return games.change(id, game -> game.claimDraw(player(auth), request.expectedPly(), request.intendedMove()));
+    }
 }
+

@@ -1,5 +1,37 @@
 # The Citadel — implementation checkpoint
 
+## 12 October 2026: database game checkpoint repository
+
+Added online_games entity, JPA repository and transactional GameStore using the existing H2/JPA stack. Stores the complete versioned recovery record, participant IDs and completion status; supports active-game loading and completed-record lookup. Optimistic entity versions detect concurrent writes and older checkpoint timestamps are rejected.
+
+All twenty-nine backend tests pass. A real H2 integration test writes, reloads, resumes and completes a game, checks retained command deduplication, excludes completed records from active loading, and verifies rejection of an older overwrite. This repository is not yet connected to live registry mutations/startup, so production online sessions still require that integration before restart recovery is complete.
+
+Commit message: feat(server): persist versioned game checkpoints with JPA
+
+## 12 October 2026: serializable game recovery model
+
+Added versioned GameSession/GameClock saved-state records and restoration. Saved state retains initial position/full history, nanosecond clock balances, time control, result, pending draw offer and accepted command IDs. Recovery rebuilds the rules history, subtracts elapsed downtime from the active clock, detects expiry and preserves frozen finished clocks. Wall time is used only to bridge process downtime; active-process timing remains monotonic.
+
+All twenty-eight backend tests pass. New JSON round-trip tests verify move/history identity, increments, downtime deduction, offer retention, retry idempotency, further legal play, timeout during downtime and finished-state preservation. This is the persistence format, not database integration: games are still stored in memory until the repository write/load path is connected.
+
+Commit message: feat(server): serialize game sessions for restart recovery
+
+## 12 October 2026: online rule-based draw claims
+
+Added validated draw-claim endpoint and online controls for the current position or an intended legal move selected by SAN. The server verifies player/ply/rule and restores an announced move without recording it. Existing claim logic is reused.
+
+All twenty-six backend tests and the client build pass. New HTTP coverage completes a seven-ply repetition claim with unchanged FEN/history and rejects the wrong player. New rules coverage checks the 99/100 halfmove boundary, pawn reset and restoration after intended claims. Browser interaction and remaining full-goal requirements are still unfinished.
+
+Commit message: feat(online): expose current and intended-move draw claims
+
+## 12 October 2026: bounded API requests
+
+Shared API requests now abort after ten seconds, covering both response headers and body reads. Timers are cleared on every outcome, server status/messages are preserved, and timeout feedback asks users to reconnect to confirm whether a submitted action was received. This lets sequential online polling and pending actions recover from stalled connections.
+
+Added verify:api coverage using controlled transport/timers for stalled headers, stalled bodies, error preservation, timer cleanup and a successful subsequent request. verify:api, verify:auth and the production build pass. This does not substitute for actual browser network-interruption testing, which remains outstanding.
+
+Commit message: fix(client): bound API requests and recover from stalled connections
+
 ## 12 October 2026: online participant names
 
 Added a participant-authorized /players endpoint returning only White/Black usernames through the existing account service. OnlinePage loads names when the game changes and displays them beside labeled clocks. It does not expose account email, credentials or preference details.

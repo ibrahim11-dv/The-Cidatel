@@ -9,6 +9,33 @@ public final class GameClock {
         public Side opposite() { return this == WHITE ? BLACK : WHITE; }
     }
     public record Snapshot(long whiteMillis, long blackMillis, Side running, Side expired) {}
+    public record Saved(int initialSeconds, int incrementSeconds, long whiteNanos, long blackNanos,
+                        Side running, Side expired, boolean started, boolean stopped) {}
+
+    public synchronized Saved save() {
+        settle();
+        return new Saved(initialSeconds, incrementSeconds(), whiteNanos, blackNanos, running, expired, started, stopped);
+    }
+
+    static GameClock restore(Saved state, long downtimeMillis, LongSupplier nanoTime) {
+        if (state.whiteNanos() < 0 || state.blackNanos() < 0 || downtimeMillis < 0) throw new IllegalArgumentException("Invalid saved clock.");
+        GameClock clock = new GameClock(state.initialSeconds(), state.incrementSeconds(), nanoTime);
+        clock.whiteNanos = state.whiteNanos();
+        clock.blackNanos = state.blackNanos();
+        clock.running = state.running();
+        clock.expired = state.expired();
+        clock.started = state.started();
+        clock.stopped = state.stopped();
+        clock.anchor = nanoTime.getAsLong();
+        if (clock.running != null) {
+            long remaining = clock.running == Side.WHITE ? clock.whiteNanos : clock.blackNanos;
+            long elapsed = Math.min(downtimeMillis, remaining / 1_000_000L + 1) * 1_000_000L;
+            if (clock.running == Side.WHITE) clock.whiteNanos = Math.max(0, remaining - elapsed);
+            else clock.blackNanos = Math.max(0, remaining - elapsed);
+            clock.settle();
+        }
+        return clock;
+    }
 
     private final LongSupplier nanoTime;
     private final long incrementNanos;

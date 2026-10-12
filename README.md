@@ -44,6 +44,7 @@ mvn test
 
 cd ../client
 npm run verify:auth
+npm run verify:api
 npm run verify:local
 npm run verify:data
 npm run verify:bot

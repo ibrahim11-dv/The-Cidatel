@@ -3,6 +3,8 @@ package com.chess.server.game;
 import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.util.*;
+import com.chess.server.game.persistence.GameStore;
+import org.springframework.beans.factory.annotation.Autowired;
 
 /** Single-process registry; durable storage and restart recovery are still required. */
 @Service
@@ -11,6 +13,52 @@ public class PrivateGames {
     private final Map<UUID, Invitation> invitations = new HashMap<>();
     private final Map<UUID, GameSession> games = new HashMap<>();
     private final Map<UUID, UUID> activeByPlayer = new HashMap<>();
+    private GameStore store;
+    private final Set<UUID> persistedFinished = new HashSet<>();
+
+    @Autowired
+    public PrivateGames(GameStore store) {
+        this(System::nanoTime);
+        this.store = store;
+        long now = System.currentTimeMillis();
+        for (GameSession.Saved saved : store.active()) {
+            GameSession game = GameSession.restore(saved, now);
+            games.put(saved.id(), game);
+            var state = game.snapshot(saved.white());
+            if (state.result() == null) {
+                if (activeByPlayer.putIfAbsent(saved.white(), saved.id()) != null
+                        || activeByPlayer.putIfAbsent(saved.black(), saved.id()) != null) {
+                    throw new IllegalStateException("Conflicting stored active games.");
+                }
+            } else persist(game);
+        }
+    }
+
+    private void persist(GameSession game) {
+        if (store == null) return;
+        var saved = game.save(System.currentTimeMillis());
+        store.save(saved);
+        if (saved.result() != null) persistedFinished.add(saved.id());
+    }
+
+    public synchronized GameSession.Snapshot state(UUID id, UUID player) {
+        GameSession game = get(id);
+        var state = game.snapshot(player);
+        if (state.result() != null && !persistedFinished.contains(id)) persist(game);
+        return state;
+    }
+
+    public synchronized GameSession.Snapshot change(UUID id, java.util.function.Function<GameSession, GameSession.Snapshot> operation) {
+        GameSession game = get(id);
+        var before = game.save(System.currentTimeMillis());
+        GameSession.Snapshot result = operation.apply(game);
+        try { persist(game); }
+        catch (RuntimeException failure) {
+            games.put(id, GameSession.restore(before, System.currentTimeMillis()));
+            throw failure;
+        }
+        return result;
+    }
     public record Rematch(UUID requestedBy, UUID gameId) {}
     private final Map<UUID, Rematch> rematches = new HashMap<>();
 
@@ -34,6 +82,7 @@ public class PrivateGames {
         }
         GameSession next = new GameSession(previous.black(), previous.white(), old.initialSeconds(), old.incrementSeconds());
         GameSession.Snapshot state = next.snapshot(player);
+        persist(next);
         games.put(state.id(), next);
         activeByPlayer.put(state.white(), state.id());
         activeByPlayer.put(state.black(), state.id());
@@ -84,6 +133,7 @@ public class PrivateGames {
         boolean firstIsWhite = java.util.concurrent.ThreadLocalRandom.current().nextBoolean();
         GameSession game = new GameSession(firstIsWhite ? opponent : player, firstIsWhite ? player : opponent, seconds, increment);
         GameSession.Snapshot state = game.snapshot(player);
+        persist(game);
         games.put(state.id(), game);
         activeByPlayer.put(player, state.id());
         activeByPlayer.put(opponent, state.id());
@@ -123,6 +173,7 @@ public class PrivateGames {
         requireAvailable(player);
         GameSession game = new GameSession(invite.host(), player, invite.seconds(), invite.increment());
         GameSession.Snapshot snapshot = game.snapshot(player);
+        persist(game);
         games.put(snapshot.id(), game);
         activeByPlayer.put(invite.host(), snapshot.id());
         activeByPlayer.put(player, snapshot.id());
@@ -147,6 +198,14 @@ public class PrivateGames {
 
     public synchronized GameSession get(UUID id) {
         GameSession game = games.get(id);
+        if (game == null && store != null) {
+            var saved = store.find(id);
+            if (saved.isPresent()) {
+                game = GameSession.restore(saved.get(), System.currentTimeMillis());
+                games.put(id, game);
+                if (saved.get().result() != null) persistedFinished.add(id);
+            }
+        }
         if (game == null) throw new NoSuchElementException("Game not found.");
         return game;
     }
@@ -154,7 +213,7 @@ public class PrivateGames {
     public synchronized GameSession.Snapshot active(UUID player) {
         UUID id = activeByPlayer.get(player);
         if (id == null) return null;
-        GameSession.Snapshot state = get(id).snapshot(player);
+        GameSession.Snapshot state = state(id, player);
         if (state.result() != null) {
             activeByPlayer.remove(state.white(), id);
             activeByPlayer.remove(state.black(), id);

@@ -30,6 +30,8 @@ function PrivateTable({ account }) {
   const [notice, setNotice] = useState('')
   const [confirm, setConfirm] = useState(false)
   const [flip, setFlip] = useState(false)
+  const [intendedMove, setIntendedMove] = useState('')
+  useEffect(() => { setIntendedMove('') }, [game?.fen])
   const version = useRef(0)
   const pending = useRef(false)
   const accept = (state) => { setSearching(false); setGame(state); setId(state.id); localStorage.setItem(key, state.id); setConnected(true) }
@@ -104,6 +106,7 @@ function PrivateTable({ account }) {
   const white = game?.white === account.id
   const flipped = flip !== !white
   const myTurn = game && new Chess(game.fen).turn() === (white ? 'w' : 'b')
+  const claimMoves = useMemo(() => game ? new Chess(game.fen).moves({ verbose: true }) : [], [game?.fen])
   function clock(side) {
     const seconds = Math.ceil(game.clocks[`${side}Millis`] / 1000)
     return <div className="player-strip"><span>{side} · {players?.[side] || ((side === 'white') === white ? account.username : 'Opponent')}</span><strong aria-label={`${side} clock`} className={`chess-clock ${game.clocks.running === side.toUpperCase() ? 'running' : ''}`}>{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</strong></div>
@@ -121,6 +124,7 @@ function PrivateTable({ account }) {
       {!game.result && <button className="quiet-button" disabled={busy || !connected} onClick={() => setConfirm(true)}>Resign</button>}
       {!game.result && (game.drawOfferedBy ? game.drawOfferedBy === account.id ? <p role="status">Draw offered. Waiting for your opponent.</p> : <div role="group" aria-label="Opponent draw offer"><p>Your opponent offers a draw.</p><button className="primary-button" disabled={busy || !connected} onClick={() => action(async () => accept(await gameApi.respondToDraw(id, true)))}>Accept draw</button><button className="quiet-button" disabled={busy || !connected} onClick={() => action(async () => accept(await gameApi.respondToDraw(id, false)))}>Decline draw</button></div> : <button className="quiet-button" disabled={busy || !connected} onClick={() => action(async () => accept(await gameApi.offerDraw(id)))}>Offer draw</button>)}
       <MoveLedger history={history} />
+      {!game.result && <details><summary>Claim a rule-based draw</summary><p>Claim threefold repetition or the fifty-move rule in this position, or announce the move that would meet the rule. An announced move is not played.</p><label htmlFor="claim-move">Position to check</label><select id="claim-move" value={intendedMove} disabled={!myTurn || busy} onChange={(event) => setIntendedMove(event.target.value)}><option value="">Current position</option>{claimMoves.map((move) => <option key={move.lan} value={`${move.from}${move.to}${move.promotion || ''}`}>After {move.san}</option>)}</select><button className="quiet-button" disabled={busy || !connected || !myTurn} onClick={() => action(async () => accept(await gameApi.claimDraw(id, game.moves.length, intendedMove)))}>Submit draw claim</button></details>}
       {game.result && <div aria-label="Rematch controls">
         {rematch?.requestedBy === account.id ? <p role="status">Rematch requested. Waiting for your opponent.</p> : <button className="primary-button" disabled={busy || !connected} onClick={() => action(() => rematchAction())}>{rematch?.requestedBy ? 'Accept rematch' : 'Request rematch'}</button>}
         {rematch?.requestedBy && <button className="quiet-button" disabled={busy || !connected} onClick={() => action(() => rematchAction(true))}>{rematch.requestedBy === account.id ? 'Cancel rematch request' : 'Decline rematch'}</button>}
