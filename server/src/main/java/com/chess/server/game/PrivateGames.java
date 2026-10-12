@@ -11,6 +11,46 @@ public class PrivateGames {
     private final Map<UUID, Invitation> invitations = new HashMap<>();
     private final Map<UUID, GameSession> games = new HashMap<>();
     private final Map<UUID, UUID> activeByPlayer = new HashMap<>();
+    public record Rematch(UUID requestedBy, UUID gameId) {}
+    private final Map<UUID, Rematch> rematches = new HashMap<>();
+
+    public synchronized Rematch rematchStatus(UUID id, UUID player) {
+        get(id).snapshot(player);
+        return rematches.getOrDefault(id, new Rematch(null, null));
+    }
+
+    public synchronized Rematch requestRematch(UUID id, UUID player) {
+        GameSession old = get(id);
+        GameSession.Snapshot previous = old.snapshot(player);
+        if (previous.result() == null) throw new IllegalStateException("Finish the game before requesting a rematch.");
+        Rematch existing = rematches.get(id);
+        if (existing != null && existing.gameId() != null) return existing;
+        requireAvailable(previous.white());
+        requireAvailable(previous.black());
+        if (existing == null || existing.requestedBy().equals(player)) {
+            Rematch requested = new Rematch(player, null);
+            rematches.put(id, requested);
+            return requested;
+        }
+        GameSession next = new GameSession(previous.black(), previous.white(), old.initialSeconds(), old.incrementSeconds());
+        GameSession.Snapshot state = next.snapshot(player);
+        games.put(state.id(), next);
+        activeByPlayer.put(state.white(), state.id());
+        activeByPlayer.put(state.black(), state.id());
+        queue.remove(state.white());
+        queue.remove(state.black());
+        invitations.values().removeIf(invite -> invite.gameId() == null
+                && (invite.host().equals(state.white()) || invite.host().equals(state.black())));
+        Rematch matched = new Rematch(existing.requestedBy(), state.id());
+        rematches.put(id, matched);
+        return matched;
+    }
+
+    public synchronized Rematch cancelRematch(UUID id, UUID player) {
+        Rematch state = rematchStatus(id, player);
+        if (state.gameId() == null) rematches.remove(id);
+        return state.gameId() == null ? new Rematch(null, null) : state;
+    }
     public record QueueState(boolean waiting, UUID gameId) {}
     private record Waiting(int seconds, int increment, long seenAt) {}
     private final Map<UUID, Waiting> queue = new LinkedHashMap<>();

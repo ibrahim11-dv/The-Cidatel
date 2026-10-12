@@ -1,4 +1,4 @@
-import { getAccessToken } from './storage'
+import { getAccessToken } from './storage.js'
 
 class ApiError extends Error {
   constructor(message, status) {
@@ -16,22 +16,29 @@ async function request(path, { method = 'GET', body, authenticated = false } = {
     if (token) headers.Authorization = `Bearer ${token}`
   }
 
-  let response
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000)
   try {
-    response = await fetch(`/api${path}`, {
+    const response = await fetch(`/api${path}`, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     })
-  } catch {
-    throw new ApiError('The chess server is unavailable. Start the Spring Boot server and try again.', 0)
+    const payload = await response.json().catch((error) => {
+      if (controller.signal.aborted) throw error
+      return null
+    })
+    if (!response.ok) throw new ApiError(payload?.message || 'The request could not be completed.', response.status)
+    return payload
+  } catch (error) {
+    if (error instanceof ApiError) throw error
+    throw new ApiError(controller.signal.aborted
+      ? 'The server took too long to respond. Reconnect to check whether your action was received.'
+      : 'The chess server is unavailable. Check your connection and try again.', 0)
+  } finally {
+    clearTimeout(timeout)
   }
-
-  const payload = await response.json().catch(() => null)
-  if (!response.ok) {
-    throw new ApiError(payload?.message || 'The request could not be completed.', response.status)
-  }
-  return payload
 }
 
 export const authApi = {
@@ -61,6 +68,10 @@ export const accountApi = {
 export { ApiError }
 
 export const gameApi = {
+  players: (id) => request(`/games/${encodeURIComponent(id)}/players`, { authenticated: true }),
+  rematchStatus: (id) => request(`/games/${encodeURIComponent(id)}/rematch`, { authenticated: true }),
+  requestRematch: (id) => request(`/games/${encodeURIComponent(id)}/rematch`, { method: 'POST', authenticated: true }),
+  cancelRematch: (id) => request(`/games/${encodeURIComponent(id)}/rematch`, { method: 'DELETE', authenticated: true }),
   matchmaking: (seconds, increment) => request('/games/matchmaking', { method: 'POST', body: { seconds, increment }, authenticated: true }),
   cancelMatchmaking: () => request('/games/matchmaking', { method: 'DELETE', authenticated: true }),
   active: () => request('/games/active', { authenticated: true }),

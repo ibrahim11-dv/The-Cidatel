@@ -54,6 +54,23 @@ class GameHttpIntegrationTest {
         assertEquals(matched.get("gameId"), call(first, "GET", "/api/games/active", null, 200).get("id"));
     }
 
+    @Test void rematchConsentOverHttpCreatesOneGameWithReversedColors() throws Exception {
+        Player first = register(), second = register();
+        JsonNode invite = call(first, "POST", "/api/games/invitations", Map.of("seconds", 60, "increment", 1), 200);
+        JsonNode original = call(second, "POST", "/api/games/invitations/" + invite.get("code").asText() + "/join", null, 200);
+        String path = "/api/games/" + original.get("id").asText();
+        call(second, "POST", path + "/resign", null, 200);
+        assertTrue(call(first, "POST", path + "/rematch", null, 200).get("gameId").isNull());
+        assertEquals(original.get("white"), call(second, "GET", path + "/rematch", null, 200).get("requestedBy"));
+        JsonNode agreed = call(second, "POST", path + "/rematch", null, 200);
+        assertEquals(agreed, call(second, "POST", path + "/rematch", null, 200));
+        JsonNode next = call(first, "GET", "/api/games/" + agreed.get("gameId").asText(), null, 200);
+        assertEquals(original.get("black"), next.get("white"));
+        assertEquals(original.get("white"), next.get("black"));
+        assertEquals(0, next.get("moves").size());
+        assertTrue(next.get("result").isNull());
+    }
+
     @Test void independentAuthenticatedClientsShareOnlyServerAcceptedMovesAndResults() throws Exception {
         Player host = register(), guest = register(), outsider = register();
         call(new Player(HttpClient.newHttpClient(), null), "POST", "/api/games/invitations",
@@ -64,6 +81,12 @@ class GameHttpIntegrationTest {
         JsonNode joined = call(guest, "POST", room + "/join", null, 200);
         String game = "/api/games/" + joined.get("id").asText();
         call(outsider, "GET", game, null, 403);
+        call(outsider, "GET", game + "/players", null, 403);
+        JsonNode names = call(host, "GET", game + "/players", null, 200);
+        assertEquals(2, names.size());
+        assertTrue(names.get("white").asText().startsWith("test_"));
+        assertTrue(names.get("black").asText().startsWith("test_"));
+        assertEquals(names, call(guest, "GET", game + "/players", null, 200));
         call(outsider, "POST", room + "/join", null, 403);
         call(guest, "POST", game + "/moves", Map.of("commandId", UUID.randomUUID(), "expectedPly", 0, "move", "e7e5"), 409);
         call(host, "POST", game + "/moves", Map.of("commandId", UUID.randomUUID(), "expectedPly", 0, "move", "e2e5"), 400);

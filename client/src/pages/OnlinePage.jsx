@@ -17,6 +17,8 @@ function PrivateTable({ account }) {
   const key = `citadel-online-${account.id}`
   const [id, setId] = useState(() => localStorage.getItem(key) || '')
   const [game, setGame] = useState(null)
+  const [players, setPlayers] = useState(null)
+  const [rematch, setRematch] = useState(null)
   const [room, setRoom] = useState(null)
   const [searching, setSearching] = useState(false)
   const queueRequest = useRef(null)
@@ -31,6 +33,14 @@ function PrivateTable({ account }) {
   const version = useRef(0)
   const pending = useRef(false)
   const accept = (state) => { setSearching(false); setGame(state); setId(state.id); localStorage.setItem(key, state.id); setConnected(true) }
+  useEffect(() => {
+    setPlayers(null)
+    if (!id) return
+    let cancelled = false
+    gameApi.players(id).then((names) => { if (!cancelled) setPlayers(names) })
+      .catch((error) => { if (!cancelled) setNotice(error.message) })
+    return () => { cancelled = true }
+  }, [id])
   useEffect(() => {
     let cancelled = false
     gameApi.active().then((state) => {
@@ -47,7 +57,14 @@ function PrivateTable({ account }) {
       const current = version.current
       try {
         let state
-        if (id) state = await gameApi.state(id)
+        let offer = null
+        if (id) {
+          state = await gameApi.state(id)
+          if (state.result) {
+            offer = await gameApi.rematchStatus(id)
+            if (offer.gameId) state = await gameApi.state(offer.gameId)
+          }
+        }
         else if (room) state = await gameApi.invitation(room.code)
         else {
           const [minutes, increment] = control.split('+').map(Number)
@@ -55,7 +72,7 @@ function PrivateTable({ account }) {
           state = await queueRequest.current
         }
         if (!cancelled && current === version.current) {
-          if (id) accept(state)
+          if (id) { accept(state); setRematch(state.result ? offer : null) }
           else if (state.gameId) { setSearching(false); setId(state.gameId) }
           setConnected(true)
         }
@@ -74,6 +91,11 @@ function PrivateTable({ account }) {
     try { await work() } catch (error) { setNotice(error.message); setConnected(false) }
     finally { version.current++; pending.current = false; setBusy(false) }
   }
+  async function rematchAction(cancel = false) {
+    const offer = await (cancel ? gameApi.cancelRematch(id) : gameApi.requestRematch(id))
+    if (offer.gameId) { accept(await gameApi.state(offer.gameId)); setRematch(null); setFlip(false) }
+    else setRematch(offer)
+  }
   const history = useMemo(() => {
     const chess = new Chess()
     for (const move of game?.moves || []) chess.move({ from: move.slice(0, 2), to: move.slice(2, 4), ...(move[4] ? { promotion: move[4] } : {}) })
@@ -84,7 +106,7 @@ function PrivateTable({ account }) {
   const myTurn = game && new Chess(game.fen).turn() === (white ? 'w' : 'b')
   function clock(side) {
     const seconds = Math.ceil(game.clocks[`${side}Millis`] / 1000)
-    return <div className="player-strip"><span>{side} · {(side === 'white') === white ? account.username : 'Opponent'}</span><strong className={`chess-clock ${game.clocks.running === side.toUpperCase() ? 'running' : ''}`}>{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</strong></div>
+    return <div className="player-strip"><span>{side} · {players?.[side] || ((side === 'white') === white ? account.username : 'Opponent')}</span><strong aria-label={`${side} clock`} className={`chess-clock ${game.clocks.running === side.toUpperCase() ? 'running' : ''}`}>{Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, '0')}</strong></div>
   }
   return <section className="online-page">
     <header className="page-heading"><p className="eyebrow">The online room</p><h1>Play online</h1><p>{game ? connected ? 'Connected · synchronized with the server' : 'Reconnecting…' : 'Find an opponent or invite a friend. Private-game hosts play White.'}</p></header>
@@ -99,6 +121,10 @@ function PrivateTable({ account }) {
       {!game.result && <button className="quiet-button" disabled={busy || !connected} onClick={() => setConfirm(true)}>Resign</button>}
       {!game.result && (game.drawOfferedBy ? game.drawOfferedBy === account.id ? <p role="status">Draw offered. Waiting for your opponent.</p> : <div role="group" aria-label="Opponent draw offer"><p>Your opponent offers a draw.</p><button className="primary-button" disabled={busy || !connected} onClick={() => action(async () => accept(await gameApi.respondToDraw(id, true)))}>Accept draw</button><button className="quiet-button" disabled={busy || !connected} onClick={() => action(async () => accept(await gameApi.respondToDraw(id, false)))}>Decline draw</button></div> : <button className="quiet-button" disabled={busy || !connected} onClick={() => action(async () => accept(await gameApi.offerDraw(id)))}>Offer draw</button>)}
       <MoveLedger history={history} />
+      {game.result && <div aria-label="Rematch controls">
+        {rematch?.requestedBy === account.id ? <p role="status">Rematch requested. Waiting for your opponent.</p> : <button className="primary-button" disabled={busy || !connected} onClick={() => action(() => rematchAction())}>{rematch?.requestedBy ? 'Accept rematch' : 'Request rematch'}</button>}
+        {rematch?.requestedBy && <button className="quiet-button" disabled={busy || !connected} onClick={() => action(() => rematchAction(true))}>{rematch.requestedBy === account.id ? 'Cancel rematch request' : 'Decline rematch'}</button>}
+      </div>}
       {game.result && <button className="primary-button" onClick={() => { version.current++; localStorage.removeItem(key); setGame(null); setId(''); setRoom(null) }}>Return to online room</button>}
     </aside></div> : id ? <><p role="status">Restoring your game…</p>{!connected && <button className="quiet-button" onClick={() => { version.current++; localStorage.removeItem(key); setId('') }}>Return to online room</button>}</> : <div className="online-layout">
       {searching ? <article className="room-card"><h2>Finding an opponent</h2><p role="status">Waiting for a player at {control.replace('+', ' + ')}. Colors are assigned randomly.</p><button className="quiet-button" disabled={busy} onClick={() => action(async () => {

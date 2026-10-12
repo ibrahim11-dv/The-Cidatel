@@ -19,6 +19,9 @@ public final class GameSession {
     private Result result;
     private UUID drawOfferedBy;
 
+    int initialSeconds() { return clock.initialSeconds(); }
+    int incrementSeconds() { return clock.incrementSeconds(); }
+
     public GameSession(UUID white, UUID black, int seconds, int increment) {
         this(white, black, new ChessPosition(), new GameClock(seconds, increment));
     }

@@ -12,6 +12,7 @@ public final class GameClock {
 
     private final LongSupplier nanoTime;
     private final long incrementNanos;
+    private final int initialSeconds;
     private long whiteNanos;
     private long blackNanos;
     private long anchor;
@@ -29,6 +30,7 @@ public final class GameClock {
             throw new IllegalArgumentException("Time control must be 15 seconds to 3 hours with 0–180 seconds increment.");
         }
         this.nanoTime = Objects.requireNonNull(nanoTime);
+        this.initialSeconds = initialSeconds;
         whiteNanos = blackNanos = initialSeconds * 1_000_000_000L;
         incrementNanos = incrementSeconds * 1_000_000_000L;
     }
@@ -81,4 +83,6 @@ public final class GameClock {
     }
 
     private static long millis(long nanos) { return (nanos + 999_999L) / 1_000_000L; }
+    int initialSeconds() { return initialSeconds; }
+    int incrementSeconds() { return (int) (incrementNanos / 1_000_000_000L); }
 }

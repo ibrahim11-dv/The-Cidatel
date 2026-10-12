@@ -1,5 +1,37 @@
 # The Citadel — implementation checkpoint
 
+## 12 October 2026: online participant names
+
+Added a participant-authorized /players endpoint returning only White/Black usernames through the existing account service. OnlinePage loads names when the game changes and displays them beside labeled clocks. It does not expose account email, credentials or preference details.
+
+All twenty-four backend tests and the client build pass. Extended real HTTP coverage checks outsiders receive 403, both participants receive identical names, and the response contains exactly the two public fields. Visual/two-client browser verification and outstanding multiplayer work remain open.
+
+Commit message: feat(online): display authorized participant names beside clocks
+
+## 12 October 2026: rematch UI and HTTP acceptance
+
+Connected finished-game rematch request, accept, decline and cancel controls to the API. Polling shows the opponent's request and transitions both participants to the agreed new game. The existing board/history/clocks consume the new authoritative state.
+
+Client build and all twenty-four backend tests pass. A real HTTP rematch test verifies consent visibility, duplicate acceptance returning one game, reversed colors, empty history and a fresh active result. Browser rematch interaction remains unverified, alongside the outstanding two-client gameplay acceptance and persistence work.
+
+Commit message: feat(online): connect rematch controls and verify shared game transition
+
+## 12 October 2026: rematch service and endpoints
+
+Added authenticated rematch request/status/cancel endpoints and a serialized registry flow. Both original players must request a rematch; agreement swaps colors, preserves the original time control, starts fresh clocks/history and returns one stable game ID on retries. A participant can decline/cancel an unaccepted request. Active-game checks prevent either player from being assigned twice, and new rematches remove stale queue/invitation entries.
+
+All twenty-three backend tests pass. Rematch tests cover premature requests, outsider rejection, repeated single-player requests, cancellation, agreement, stable duplicate responses, swapped colors and unchanged time control. Rematch UI and actual HTTP/browser acceptance still need implementation/verification. The full goal remains incomplete.
+
+Commit message: feat(server): add mutually accepted rematches with swapped colors
+
+## 12 October 2026: browser lobby checks and stable development port
+
+Browser testing found Vite's automatic fallback to 5174 incompatible with the backend's configured 5173 origins. Enabled strictPort in client/vite.config.js so startup reports a conflict instead of serving a misleading, broken account flow on another port. Restarted the test services with an isolated in-memory backend database.
+
+Real browser verified account registration, signed-in /online entry, matchmaking waiting state, cancellation returning to the lobby, and creation of a private invitation link. Screenshot: citadel-online-invitation-proof.png. This is single-client lobby verification; two-client moves, clocks, reconnection and game completion still require browser acceptance testing. Full goal remains active.
+
+Commit message: fix(dev): keep frontend on the configured API origin
+
 ## 11 October 2026: matchmaking UI and HTTP verification
 
 OnlinePage now offers Find an opponent using the selected time control, refreshes queue membership while waiting, displays waiting state and supports cancellation. Cancellation waits for an in-flight queue request before removing membership, and follows the server's game ID if matching happened first. Private-game controls are disabled during matchmaking.

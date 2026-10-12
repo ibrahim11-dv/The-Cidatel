@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "verify:api": "node scripts/verify-api.mjs",
     "verify:local": "node scripts/verify-local.mjs",
     "verify:engine-protocol": "node scripts/verify-engine-protocol.mjs",
     "prepare:stockfish": "node scripts/prepare-stockfish.mjs",

@@ -5,6 +5,7 @@ import jakarta.validation.constraints.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import java.util.UUID;
+import com.chess.server.account.application.AccountService;
 
 @RestController
 @RequestMapping("/api/games")
@@ -13,7 +14,14 @@ public class GameController {
     public record MoveRequest(@NotNull UUID commandId, @Min(0) int expectedPly,
                               @NotBlank @Pattern(regexp="[a-h][1-8][a-h][1-8][qrbn]?") String move) {}
     private final PrivateGames games;
-    public GameController(PrivateGames games) { this.games = games; }
+    private final AccountService accounts;
+    public GameController(PrivateGames games, AccountService accounts) { this.games = games; this.accounts = accounts; }
+    public record Players(String white, String black) {}
+    @GetMapping("/{id}/players")
+    public Players players(Authentication auth, @PathVariable UUID id) {
+        GameSession.Snapshot state = games.get(id).snapshot(player(auth));
+        return new Players(accounts.get(state.white()).username(), accounts.get(state.black()).username());
+    }
     private UUID player(Authentication auth) { return (UUID) auth.getPrincipal(); }
 
     @GetMapping("/active")
@@ -25,6 +33,13 @@ public class GameController {
     }
     @DeleteMapping("/matchmaking")
     public PrivateGames.QueueState cancelMatchmaking(Authentication auth) { return games.cancelMatchmaking(player(auth)); }
+
+    @GetMapping("/{id}/rematch")
+    public PrivateGames.Rematch rematchStatus(Authentication auth, @PathVariable UUID id) { return games.rematchStatus(id, player(auth)); }
+    @PostMapping("/{id}/rematch")
+    public PrivateGames.Rematch rematch(Authentication auth, @PathVariable UUID id) { return games.requestRematch(id, player(auth)); }
+    @DeleteMapping("/{id}/rematch")
+    public PrivateGames.Rematch cancelRematch(Authentication auth, @PathVariable UUID id) { return games.cancelRematch(id, player(auth)); }
 
     @PostMapping("/invitations")
     public PrivateGames.Invitation create(Authentication auth, @Valid @RequestBody Setup setup) {
