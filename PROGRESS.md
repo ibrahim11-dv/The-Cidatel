@@ -1,5 +1,11 @@
 # The Citadel — implementation checkpoint
 
+## 13 October 2026: Stockfish engine attribution
+
+The bot setup now credits the bundled Stockfish 19 engine and its Stockfish.js WebAssembly wrapper, with direct links to both source projects. The existing browser preparation step already publishes the package's full GPL-3.0 text at `/stockfish/COPYING.txt`; the bot screen now links to it plainly. Difficulty guidance continues to avoid uncalibrated Elo claims.
+
+Commit message: docs(bot): add Stockfish engine attribution
+
 ## 13 October 2026: combined scorebook totals
 
 Profile statistics now aggregate finished online games with locally recorded games. Wins are determined from the account’s assigned online color, and draws count from the server result, so the totals no longer disagree with the new online scorebook section. Focused online-history and API checks plus the production client build pass.

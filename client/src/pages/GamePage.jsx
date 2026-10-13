@@ -208,7 +208,7 @@ export function GamePage({ mode }) {
           <label>Difficulty<select value={difficultyId} onChange={(event) => { const id = event.target.value; reset({}, () => setDifficultyId(id)) }}>{BOT_LEVELS.map((level) => <option key={level.id} value={level.id}>{level.label}</option>)}</select></label></>}
       </div>
     </div>
-    {mode === 'bot' && <div className="bot-setup-note"><p>{difficulty.note} Strength levels are not calibrated player ratings.</p><label><input type="checkbox" checked={hintsAllowed} onChange={(event) => { setHintsAllowed(event.target.checked); if (!event.target.checked) { hintGeneration.current += 1; if (hinting) cancelSearch(); setHinting(false); setHint(null) } }} /> Allow hints</label></div>}
+    {mode === 'bot' && <div className="bot-setup-note"><div><p>{difficulty.note} Strength levels are not calibrated player ratings.</p><p className="engine-attribution">Powered by <a href="https://github.com/official-stockfish/Stockfish" target="_blank" rel="noreferrer">Stockfish 19</a> through <a href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noreferrer">Stockfish.js</a> · <a href="/stockfish/COPYING.txt" target="_blank" rel="noreferrer">GPL-3.0 license</a></p></div><label><input type="checkbox" checked={hintsAllowed} onChange={(event) => { setHintsAllowed(event.target.checked); if (!event.target.checked) { hintGeneration.current += 1; if (hinting) cancelSearch(); setHinting(false); setHint(null) } }} /> Allow hints</label></div>}
     <nav className="table-navigation" aria-label="Play modes"><Link to="/play/local">Local</Link><Link to="/play/bot">Bots</Link><Link to="/online">Online</Link></nav>
     <div className="game-layout">
       {playerStrip(flipped ? 'w' : 'b', true)}
