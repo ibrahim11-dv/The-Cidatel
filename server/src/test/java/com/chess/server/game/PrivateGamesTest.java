@@ -2,6 +2,7 @@ package com.chess.server.game;
 
 import org.junit.jupiter.api.Test;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PrivateGamesTest {
@@ -45,5 +46,39 @@ class PrivateGamesTest {
         assertThrows(SecurityException.class, () -> games.cancel(invite.code(), UUID.randomUUID()));
         games.cancel(invite.code(), host);
         assertThrows(java.util.NoSuchElementException.class, () -> games.join(invite.code(), UUID.randomUUID()));
+    }
+
+    @Test void awardsAnAbandonedGameOnlyAfterTheOpponentMissesTheReconnectGracePeriod() {
+        AtomicLong now = new AtomicLong();
+        PrivateGames games = new PrivateGames(now::get);
+        UUID host = UUID.randomUUID(), guest = UUID.randomUUID();
+        var game = games.join(games.create(host, 60, 0).code(), guest);
+
+        now.set(119_000_000_000L);
+        games.maintain();
+        assertNull(games.state(game.id(), host).result());
+        games.state(game.id(), host); // Host remains connected shortly before the grace period ends.
+        now.set(120_000_000_000L);
+        games.maintain();
+
+        var result = games.state(game.id(), host).result();
+        assertEquals("1-0", result.score());
+        assertEquals("abandonment", result.reason());
+        assertNull(games.active(host));
+        assertNull(games.active(guest));
+    }
+
+    @Test void settlesMutualAbsenceAsAnAbandonedDraw() {
+        AtomicLong now = new AtomicLong();
+        PrivateGames games = new PrivateGames(now::get);
+        UUID host = UUID.randomUUID(), guest = UUID.randomUUID();
+        var game = games.join(games.create(host, 60, 0).code(), guest);
+
+        now.set(120_000_000_000L);
+        games.maintain();
+
+        var result = games.state(game.id(), host).result();
+        assertEquals("1/2-1/2", result.score());
+        assertEquals("abandonment", result.reason());
     }
 }

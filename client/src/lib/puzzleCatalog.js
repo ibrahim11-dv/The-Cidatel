@@ -11,3 +11,22 @@ export function nextPuzzleId(puzzles, currentId) {
   const index = puzzles.findIndex((puzzle) => puzzle.id === currentId)
   return puzzles[(index + 1 + puzzles.length) % puzzles.length].id
 }
+
+export function difficultyRank(puzzle) {
+  if (Number.isFinite(puzzle.rating)) return puzzle.rating
+  return ({ Foundation: 600, Club: 1400 })[puzzle.difficulty] || 1000
+}
+
+export function sortPuzzlesByDifficulty(puzzles) {
+  return [...puzzles].sort((left, right) => difficultyRank(left) - difficultyRank(right) || left.title.localeCompare(right.title))
+}
+
+export function nextUnfinishedPuzzle(puzzles, completed) {
+  const finished = new Set(completed)
+  return sortPuzzlesByDifficulty(puzzles).find((puzzle) => !finished.has(puzzle.id)) || null
+}
+
+export function puzzleObjective(puzzle) {
+  if (puzzle.theme.startsWith('Mate in ')) return `Deliver ${puzzle.theme.toLowerCase()}.`
+  return 'Find the best tactical continuation.'
+}

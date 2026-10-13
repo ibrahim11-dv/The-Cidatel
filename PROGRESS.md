@@ -1,5 +1,21 @@
 # The Citadel — implementation checkpoint
 
+## 13 October 2026: puzzle difficulty progression
+
+Puzzle lists now order studies from introductory composed positions through the accurately supplied Lichess ratings. Each study states a concrete objective, and a new Continue progression control selects the easiest unfinished study in the active tactical category. Completing every study in that category switches the control to an honest completion state. The expanded controls wrap cleanly at narrower widths.
+
+Focused category/progression/objective navigation checks, puzzle-data validation and puzzle-stat checks pass; the production client build passes. This orders the available ten-study collection rather than claiming a calibrated global puzzle rating system. Dataset breadth, alternate multi-move branches and browser acceptance remain open.
+
+Commit message: feat(puzzles): guide players through difficulty progression
+
+## 13 October 2026: online disconnect and abandonment handling
+
+The online registry now tracks authenticated game contact through normal state polls and game actions. A player has a two-minute reconnect grace period; if exactly one player stops contacting the server after that window, the connected opponent wins by abandonment. If both disappear, the game is settled as an abandoned draw. Presence starts fresh after a server restart so both players retain the same grace period to reconnect. Finished records continue to use the existing durable checkpoint flow and are released from active-game ownership.
+
+The new lifecycle tests cover the grace boundary, a connected player winning after an opponent disappears, and mutual absence. The full server suite passes: 41 tests with no failures or errors. This is transport-level liveness based on the existing reliable polling path; wider multi-browser acceptance testing remains open.
+
+Commit message: feat(online): settle abandoned games after reconnect grace
+
 ## 13 October 2026: accurate home-mode descriptions
 
 The home screen now describes the available product accurately: it reports the current puzzle-study count and identifies online play as live private invitations and matchmaking with server-authoritative clocks. Removed language implying those working modes were still being prepared. The production client build passes.

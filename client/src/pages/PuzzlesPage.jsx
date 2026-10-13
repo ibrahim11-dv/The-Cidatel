@@ -7,7 +7,7 @@ import { puzzles } from '../data/puzzles'
 import { getPuzzleProgress, markPuzzleComplete, savePuzzleSnapshot } from '../lib/storage'
 import { isPuzzleAnswer } from '../lib/puzzleAnswer'
 import { loadPuzzleStats, savePuzzleStats, updatePuzzleStats } from '../lib/puzzleStats'
-import { filterPuzzles, nextPuzzleId, puzzleCategories } from '../lib/puzzleCatalog'
+import { filterPuzzles, nextPuzzleId, nextUnfinishedPuzzle, puzzleCategories, puzzleObjective, sortPuzzlesByDifficulty } from '../lib/puzzleCatalog'
 import { puzzleApi } from '../lib/api'
 
 export function PuzzlesPage() {
@@ -97,7 +97,8 @@ function PuzzleStudy({ ownerId }) {
   }
   const puzzle = puzzles.find((item) => item.id === selectedId) || puzzles[0]
   const categories = puzzleCategories(puzzles)
-  const visiblePuzzles = filterPuzzles(puzzles, category)
+  const visiblePuzzles = sortPuzzlesByDifficulty(filterPuzzles(puzzles, category))
+  const nextChallenge = nextUnfinishedPuzzle(visiblePuzzles, completed)
   const game = new Chess(fen)
   const solved = step >= puzzle.solution.length
   const lastMove = history.at(-1)
@@ -211,8 +212,10 @@ function PuzzleStudy({ ownerId }) {
             <button className="quiet-button" type="button" disabled={solved || revealed || syncState === 'syncing'} onClick={showSolution}>Show solution</button>
             <button className="quiet-button" type="button" onClick={resetPuzzle}>Retry puzzle</button>
             <button className="quiet-button" type="button" onClick={() => choosePuzzle(nextPuzzleId(visiblePuzzles, puzzle.id))}>Next puzzle</button>
+            <button className="quiet-button" type="button" disabled={!nextChallenge} onClick={() => nextChallenge && choosePuzzle(nextChallenge.id)}>{nextChallenge ? 'Continue progression' : 'Category complete'}</button>
           </div>
           <p className="study-note" role="status">{hint ? hintText : feedback}</p>
+          <p className="small-note">Objective: {puzzleObjective(puzzle)} {nextChallenge ? `Next unfinished: ${nextChallenge.title}.` : 'Every study in this category is complete.'}</p>
           <p className="small-note">{ownerId === 'guest'
             ? 'Guest progress is saved in this browser.'
             : syncState === 'syncing' ? 'Loading your account progress…'

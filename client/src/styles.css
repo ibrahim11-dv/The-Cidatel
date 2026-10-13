@@ -164,7 +164,7 @@ select, input { min-height: 38px; border: 1px solid var(--rule); border-radius: 
 .puzzle-title h2 { margin: 5px 0 0; }
 .puzzle-title p { margin: 0; color: var(--ink-soft); font-size: .75rem; }
 .puzzle-table .board-wrap { width: 100%; }
-.puzzle-controls { display: flex; justify-content: space-between; gap: 8px; padding-top: 14px; }
+.puzzle-controls { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-top: 14px; }
 .study-note { min-height: 48px; border-top: 1px solid var(--rule); margin: 14px 0 0; padding: 12px 0; color: var(--ink-soft); font: .94rem var(--serif); }
 .puzzle-ledger { border-top: 1px solid var(--ink); padding-top: 14px; }
 .puzzle-ledger > p:not(.eyebrow) { color: var(--ink-soft); font: .96rem var(--serif); }

@@ -104,7 +104,7 @@ public class PrivateGames {
     public synchronized GameSession.Snapshot state(UUID id, UUID player) {
         GameSession game = get(id);
         var state = game.snapshot(player);
-        touch(player);
+        if (state.result() == null) touch(player);
         if (state.result() != null && !persistedFinished.contains(id)) persist(game);
         return state;
     }
@@ -126,7 +126,7 @@ public class PrivateGames {
     public synchronized GameSession.Snapshot change(UUID id, UUID player, java.util.function.Function<GameSession, GameSession.Snapshot> operation) {
         GameSession.Snapshot result = change(id, operation);
         if (!player.equals(result.white()) && !player.equals(result.black())) throw new SecurityException("You are not a player in this game.");
-        touch(player);
+        if (result.result() == null) touch(player);
         return result;
     }
     public record Rematch(UUID requestedBy, UUID gameId) {}
