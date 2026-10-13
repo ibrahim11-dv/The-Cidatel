@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import {
   clearSession,
-  DEFAULT_PREFERENCES,
   getSession,
   saveAuthenticatedSession,
   updateSavedSession,

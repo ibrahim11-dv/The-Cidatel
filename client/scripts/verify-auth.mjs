@@ -34,6 +34,8 @@ const {
   updateSavedSession,
   getPuzzleProgress,
   markPuzzleComplete,
+  getGuestPreferences,
+  saveGuestPreferences,
 } = await import('../src/lib/storage.js')
 
 const firstSession = saveAuthenticatedSession({
@@ -62,6 +64,12 @@ assert.deepEqual(appearanceSession.preferences, { boardTheme: 'forest', pieceSty
 clearSession()
 assert.equal(getSession(), null)
 assert.equal(getAccessToken(), null)
+saveGuestPreferences({ pieceStyle: 'modern', pieceTone: 'brass' })
+assert.equal(getGuestPreferences().pieceTone, 'brass')
+assert.equal(getGuestPreferences().pieceStyle, 'modern')
+saveGuestPreferences({ pieceStyle: 'unknown', pieceTone: 'unknown' })
+assert.equal(getGuestPreferences().pieceTone, 'ivory')
+assert.equal(getGuestPreferences().pieceStyle, 'classic')
 assert.deepEqual(markPuzzleComplete('guest', 'quiet-crown'), ['quiet-crown'])
 assert.deepEqual(markPuzzleComplete('guest', 'quiet-crown'), ['quiet-crown'])
 assert.deepEqual(getPuzzleProgress('account-1'), [])

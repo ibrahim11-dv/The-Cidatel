@@ -1,5 +1,13 @@
 # The Citadel — implementation checkpoint
 
+## 12 October 2026: guest and account piece rendering controls
+
+Settings now exposes the existing outline weights and ivory/ebony/brass tones with a shared-board preview. SessionContext keeps guest preferences separate from authenticated preferences; guests save locally, signed-in users reuse the existing appearance API. Saves disable the selectors until complete and failures produce an honest message. Invalid saved guest choices fall back to defaults. Labels describe outline rendering rather than claiming distinct silhouettes.
+
+Guest preference round-trip/default checks and the existing auth verifier pass; production build passes. Browser preview/restore acceptance, distinct piece silhouettes and full preference synchronization remain open. Files: client/src/lib/storage.js, client/src/context/SessionContext.jsx, client/src/pages/SettingsPage.jsx, client/scripts/verify-auth.mjs.
+
+Commit message: feat(settings): persist guest piece tones and expose account piece controls
+
 ## 12 October 2026: custom-color contrast feedback
 
 Settings now calculates contrast for main text against background/sidebar/panels and for primary-button text. Color changes immediately identify combinations below the 4.5:1 normal-text target, with measured ratios. The interface explicitly limits this check to solid colors; it is not a full accessibility certification.
