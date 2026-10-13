@@ -67,6 +67,11 @@ export const accountApi = {
   },
 }
 
+export const puzzleApi = {
+  progress: () => request('/puzzles/progress', { authenticated: true }),
+  saveProgress: (progress) => request('/puzzles/progress', { method: 'PUT', body: progress, authenticated: true }),
+}
+
 export { ApiError }
 
 export const gameApi = {

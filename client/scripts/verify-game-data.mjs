@@ -24,7 +24,17 @@ for (const puzzle of puzzles) {
     assert.ok(isPuzzleAnswer(puzzle, step, played, game))
     assert.equal(isPuzzleAnswer(puzzle, puzzle.solution.length, played, game), false)
   }
-  if (!game.isGameOver()) throw new Error(`${puzzle.id} does not reach a terminal position`)
+  if (!puzzle.source && !game.isGameOver()) throw new Error(`${puzzle.id} does not reach a terminal position`)
 }
 
-console.log(`Validated ${puzzles.length} puzzle positions and ${alternatives} alternative mating answers; rejected non-mates in mate-in-one studies.`)
+const licensed = puzzles.filter((puzzle) => puzzle.source)
+assert.equal(licensed.length, 4)
+for (const puzzle of licensed) {
+  assert.equal(puzzle.source.provider, 'Lichess Open Database')
+  assert.equal(puzzle.source.license, 'CC0')
+  assert.match(puzzle.source.gameUrl, /^https:\/\/lichess\.org\//)
+  assert.ok(Number.isSafeInteger(puzzle.rating) && puzzle.rating > 0)
+  assert.ok(puzzle.themes.length >= 2)
+}
+
+console.log(`Validated ${puzzles.length} puzzle positions, ${licensed.length} CC0 Lichess records and ${alternatives} alternative mating answers; rejected non-mates in mate-in-one studies.`)

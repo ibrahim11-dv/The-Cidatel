@@ -1,5 +1,23 @@
 # The Citadel — implementation checkpoint
 
+## 13 October 2026: tactical category browsing
+
+The puzzle index now derives its categories from the study metadata and lets a player filter the ten available studies by theme. Choosing a category immediately keeps the displayed study within that category; Next wraps through the filtered set rather than jumping to an unrelated study. The selected study also exposes all of its category tags alongside its analysis.
+
+Focused category filtering/next-navigation, puzzle-data and puzzle-stat checks pass, and the production client build passes. The metadata currently supports the available seed collection only; difficulty progression, broad category coverage, alternate multi-move branches, browser acceptance and server-side progress remain open.
+
+Commit message: feat(puzzles): add tactical category browsing
+
+## 13 October 2026: licensed Lichess puzzle seed collection
+
+Added four attributed CC0 puzzles from the Lichess Open Database, alongside the existing Citadel studies. The imported records retain puzzle IDs, game URLs, ratings, category tags and source/license metadata. The loader applies the source format's initial opponent move before presenting the position and converts the remaining UCI line to SAN for the existing shared-board flow. The puzzle screen now shows either foundation/club difficulty or a Lichess rating, plus a source link for imported records.
+
+Adjusted the data verifier so composed Citadel mate studies still must end the game, while Lichess advantage tactics validate their authoritative line without incorrectly requiring checkmate. Ten positions validate, including four CC0 Lichess records; puzzle-stat checks and production build pass. This is a small licensed seed set, not a replacement for the full Lichess database. More categories, filtering, alternate multi-move branches, browser acceptance and account persistence remain open.
+
+Source: https://database.lichess.org/#puzzles (CC0; consulted 13 October 2026).
+
+Commit message: feat(puzzles): add attributed Lichess CC0 tactical seed set
+
 ## 12 October 2026: guest and account piece rendering controls
 
 Settings now exposes the existing outline weights and ivory/ebony/brass tones with a shared-board preview. SessionContext keeps guest preferences separate from authenticated preferences; guests save locally, signed-in users reuse the existing appearance API. Saves disable the selectors until complete and failures produce an honest message. Invalid saved guest choices fall back to defaults. Labels describe outline rendering rather than claiming distinct silhouettes.

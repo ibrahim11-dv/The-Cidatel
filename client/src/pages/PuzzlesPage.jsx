@@ -4,9 +4,11 @@ import { ChessBoard } from '../components/ChessBoard'
 import { MoveLedger } from '../components/MoveLedger'
 import { useSession } from '../context/SessionContext'
 import { puzzles } from '../data/puzzles'
-import { getPuzzleProgress, markPuzzleComplete } from '../lib/storage'
+import { getPuzzleProgress, markPuzzleComplete, savePuzzleSnapshot } from '../lib/storage'
 import { isPuzzleAnswer } from '../lib/puzzleAnswer'
 import { loadPuzzleStats, savePuzzleStats, updatePuzzleStats } from '../lib/puzzleStats'
+import { filterPuzzles, nextPuzzleId, puzzleCategories } from '../lib/puzzleCatalog'
+import { puzzleApi } from '../lib/api'
 
 export function PuzzlesPage() {
   const { session } = useSession()
@@ -23,16 +25,79 @@ function PuzzleStudy({ ownerId }) {
   const [completed, setCompleted] = useState(() => getPuzzleProgress(ownerId))
   const [revealed, setRevealed] = useState(false)
   const [stats, setStats] = useState(() => loadPuzzleStats(ownerId))
+  const [category, setCategory] = useState('All studies')
+  const [syncState, setSyncState] = useState(ownerId === 'guest' ? 'guest' : 'syncing')
   const statsRef = useRef(stats)
+  const completedRef = useRef(completed)
+  const remoteReadyRef = useRef(ownerId === 'guest')
+  const syncChainRef = useRef(Promise.resolve())
   const attempt = useRef(null)
+
+  useEffect(() => {
+    attempt.current = null
+    const local = { completed: getPuzzleProgress(ownerId), stats: loadPuzzleStats(ownerId) }
+    completedRef.current = local.completed
+    statsRef.current = local.stats
+    setCompleted(local.completed)
+    setStats(local.stats)
+    if (ownerId === 'guest') {
+      remoteReadyRef.current = true
+      setSyncState('guest')
+      return undefined
+    }
+
+    let active = true
+    remoteReadyRef.current = false
+    setSyncState('syncing')
+    puzzleApi.progress()
+      .then((remote) => {
+        if (!active) return
+        const hasServerProgress = remote.completed.length > 0 || remote.stats.attempted > 0
+        const snapshot = hasServerProgress ? remote : local
+        completedRef.current = snapshot.completed
+        statsRef.current = snapshot.stats
+        savePuzzleSnapshot(ownerId, snapshot.completed)
+        savePuzzleStats(ownerId, snapshot.stats)
+        setCompleted(snapshot.completed)
+        setStats(snapshot.stats)
+        remoteReadyRef.current = true
+        setSyncState('ready')
+        if (!hasServerProgress && (local.completed.length > 0 || local.stats.attempted > 0)) {
+          puzzleApi.saveProgress(snapshot).catch(() => active && setSyncState('offline'))
+        }
+      })
+      .catch(() => {
+        if (!active) return
+        remoteReadyRef.current = true
+        setSyncState('offline')
+      })
+    return () => { active = false }
+  }, [ownerId])
+
+  function persist(nextStats, nextCompleted = completedRef.current) {
+    const completed = savePuzzleSnapshot(ownerId, nextCompleted)
+    savePuzzleStats(ownerId, nextStats)
+    const snapshot = { completed, stats: nextStats }
+    completedRef.current = completed
+    if (ownerId === 'guest' || !remoteReadyRef.current) return snapshot
+    syncChainRef.current = syncChainRef.current
+      .catch(() => undefined)
+      .then(() => puzzleApi.saveProgress(snapshot))
+      .then(() => setSyncState('ready'))
+      .catch(() => setSyncState('offline'))
+    return snapshot
+  }
+
   function record(event) {
     attempt.current ||= crypto.randomUUID()
     const updated = updatePuzzleStats(statsRef.current, attempt.current, event)
     statsRef.current = updated
     setStats(updated)
-    savePuzzleStats(ownerId, updated)
+    persist(updated)
   }
   const puzzle = puzzles.find((item) => item.id === selectedId) || puzzles[0]
+  const categories = puzzleCategories(puzzles)
+  const visiblePuzzles = filterPuzzles(puzzles, category)
   const game = new Chess(fen)
   const solved = step >= puzzle.solution.length
   const lastMove = history.at(-1)
@@ -46,6 +111,10 @@ function PuzzleStudy({ ownerId }) {
     setRevealed(false)
     setFeedback('Find the forcing line.')
   }, [puzzle])
+
+  useEffect(() => {
+    if (!visiblePuzzles.some((item) => item.id === selectedId)) setSelectedId(visiblePuzzles[0]?.id || puzzles[0].id)
+  }, [category])
 
   function choosePuzzle(id) {
     setSelectedId(id)
@@ -87,7 +156,9 @@ function PuzzleStudy({ ownerId }) {
       if (lineFinished) {
         record('solve')
         const progress = markPuzzleComplete(ownerId, puzzle.id)
+        completedRef.current = progress
         setCompleted(progress)
+        persist(statsRef.current, progress)
         setFeedback('Well found. This study is now marked in your scorebook.')
       } else {
         setFeedback('Correct. Continue the line.')
@@ -122,8 +193,9 @@ function PuzzleStudy({ ownerId }) {
       </section>
       <div className="puzzle-layout">
         <aside className="puzzle-index" aria-label="Puzzle list">
-          <p className="eyebrow">{puzzles.length} studies</p>
-          {puzzles.map((item, index) => (
+          <p className="eyebrow">{visiblePuzzles.length} studies</p>
+          <label className="puzzle-filter">Category<select value={category} onChange={(event) => setCategory(event.target.value)}>{categories.map((item) => <option key={item}>{item}</option>)}</select></label>
+          {visiblePuzzles.map((item, index) => (
             <button key={item.id} type="button" className={item.id === puzzle.id ? 'current' : ''} onClick={() => choosePuzzle(item.id)}>
               <span>{String(index + 1).padStart(2, '0')}</span>
               <b>{item.title}</b>
@@ -132,18 +204,25 @@ function PuzzleStudy({ ownerId }) {
           ))}
         </aside>
         <div className="puzzle-table">
-          <div className="puzzle-title"><div><span>{puzzle.theme}</span><h2>{puzzle.title}</h2></div><p>{puzzle.side === 'w' ? 'White' : 'Black'} to play</p></div>
-          <ChessBoard fen={fen} onMove={playMove} interactive={!solved && !revealed} flipped={puzzle.side === 'b'} lastMove={lastMove} label={`${puzzle.title} puzzle board`} />
+          <div className="puzzle-title"><div><span>{puzzle.theme}</span><h2>{puzzle.title}</h2></div><p>{puzzle.side === 'w' ? 'White' : 'Black'} to play · {puzzle.rating ? `Lichess ${puzzle.rating}` : puzzle.difficulty}</p></div>
+          <ChessBoard fen={fen} onMove={playMove} interactive={!solved && !revealed && syncState !== 'syncing'} flipped={puzzle.side === 'b'} lastMove={lastMove} label={`${puzzle.title} puzzle board`} />
           <div className="puzzle-controls">
-            <button className="primary-button" type="button" disabled={solved || revealed} onClick={() => { if (!hint) record('hint'); setHint(!hint) }}>{hint ? 'Hide hint' : 'Reveal hint'}</button>
-            <button className="quiet-button" type="button" disabled={solved || revealed} onClick={showSolution}>Show solution</button>
+            <button className="primary-button" type="button" disabled={solved || revealed || syncState === 'syncing'} onClick={() => { if (!hint) record('hint'); setHint(!hint) }}>{hint ? 'Hide hint' : 'Reveal hint'}</button>
+            <button className="quiet-button" type="button" disabled={solved || revealed || syncState === 'syncing'} onClick={showSolution}>Show solution</button>
             <button className="quiet-button" type="button" onClick={resetPuzzle}>Retry puzzle</button>
-            <button className="quiet-button" type="button" onClick={() => choosePuzzle(puzzles[(puzzles.findIndex((item) => item.id === puzzle.id) + 1) % puzzles.length].id)}>Next puzzle</button>
+            <button className="quiet-button" type="button" onClick={() => choosePuzzle(nextPuzzleId(visiblePuzzles, puzzle.id))}>Next puzzle</button>
           </div>
           <p className="study-note" role="status">{hint ? hintText : feedback}</p>
-          <p className="small-note">{ownerId === 'guest' ? 'Guest progress is saved in this browser.' : 'Progress is currently saved in this browser for your account.'}</p>
+          <p className="small-note">{ownerId === 'guest'
+            ? 'Guest progress is saved in this browser.'
+            : syncState === 'syncing' ? 'Loading your account progress…'
+              : syncState === 'offline' ? 'The server is unavailable. Your account progress is temporarily saved in this browser.'
+                : 'Progress is saved to your account.'}</p>
         </div>
-        <aside className="puzzle-ledger"><p className="eyebrow">Analysis</p><p>{puzzle.note}</p><MoveLedger history={history} /></aside>
+        <aside className="puzzle-ledger"><p className="eyebrow">Analysis</p><p>{puzzle.note}</p>
+          <p className="small-note">Categories: {(puzzle.themes || [puzzle.theme]).join(' · ')}</p>
+          {puzzle.source && <p className="small-note">Source: <a href={puzzle.source.gameUrl} target="_blank" rel="noreferrer">Lichess puzzle {puzzle.source.puzzleId}</a> · {puzzle.source.license}</p>}
+          <MoveLedger history={history} /></aside>
       </div>
     </section>
   )

@@ -127,3 +127,10 @@ export function markPuzzleComplete(ownerId, puzzleId) {
   localWrite(KEYS.puzzles, allProgress)
   return allProgress[ownerId]
 }
+
+export function savePuzzleSnapshot(ownerId, completed) {
+  const allProgress = localRead(KEYS.puzzles, {})
+  allProgress[ownerId] = [...new Set((completed || []).filter((id) => typeof id === 'string'))]
+  localWrite(KEYS.puzzles, allProgress)
+  return allProgress[ownerId]
+}

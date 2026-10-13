@@ -152,6 +152,8 @@ select, input { min-height: 38px; border: 1px solid var(--rule); border-radius: 
 .puzzle-layout { display: grid; grid-template-columns: minmax(150px,.6fr) minmax(340px, 1.45fr) minmax(190px,.7fr); gap: clamp(20px, 4vw, 56px); align-items: start; padding-top: clamp(28px, 4vw, 54px); }
 .puzzle-index { border-top: 2px solid var(--ink); }
 .puzzle-index .eyebrow { padding-top: 14px; }
+.puzzle-filter { display: grid; gap: 5px; margin: 0 0 10px; color: var(--ink-soft); font: .62rem var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+.puzzle-filter select { width: 100%; }
 .puzzle-index button { width: 100%; display: grid; grid-template-columns: 24px 1fr 18px; gap: 5px; padding: 12px 0; text-align: left; border: 0; border-bottom: 1px solid var(--rule); background: transparent; color: var(--ink); }
 .puzzle-index button:hover, .puzzle-index button.current { padding-left: 5px; background: rgba(154,115,55,.08); }
 .puzzle-index button span { color: var(--brass); font: .62rem var(--mono); }
@@ -334,6 +336,7 @@ select, input { min-height: 38px; border: 1px solid var(--rule); border-radius: 
   .puzzle-layout { display: flex; flex-direction: column; gap: 28px; }
   .puzzle-index { width: 100%; display: grid; grid-template-columns: repeat(2, 1fr); column-gap: 15px; }
   .puzzle-index .eyebrow { grid-column: 1 / -1; }
+  .puzzle-filter { grid-column: 1 / -1; }
   .puzzle-table { width: 100%; }
   .puzzle-ledger { width: 100%; display: block; }
   .puzzle-ledger .move-ledger { max-height: 200px; }

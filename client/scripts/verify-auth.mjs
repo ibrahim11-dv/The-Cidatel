@@ -34,6 +34,7 @@ const {
   updateSavedSession,
   getPuzzleProgress,
   markPuzzleComplete,
+  savePuzzleSnapshot,
   getGuestPreferences,
   saveGuestPreferences,
 } = await import('../src/lib/storage.js')
@@ -76,6 +77,9 @@ assert.deepEqual(getPuzzleProgress('account-1'), [])
 markPuzzleComplete('account-1', 'eighth-rank')
 assert.deepEqual(getPuzzleProgress('guest'), ['quiet-crown'])
 assert.deepEqual(getPuzzleProgress('account-1'), ['eighth-rank'])
+const accountSnapshot = { completed: ['eighth-rank', 'legals-mate', 'legals-mate'], stats: { attempted: 2, solved: 1, unassisted: 1, streak: 1, best: 1, active: null } }
+assert.deepEqual(savePuzzleSnapshot('account-1', accountSnapshot.completed), ['eighth-rank', 'legals-mate'])
+assert.deepEqual(getPuzzleProgress('account-1'), ['eighth-rank', 'legals-mate'])
 
 const browserFormValues = readAuthForm([
   ['username', '  club_member  '],
