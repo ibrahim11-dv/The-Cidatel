@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { Chess } from 'chess.js'
 import { Link } from 'react-router-dom'
 import { ChessBoard } from '../components/ChessBoard'
+import { puzzles } from '../data/puzzles'
 
 const modes = [
   ['01', 'Play locally', 'A shared board for two people at one table.', '/play/local'],
   ['02', 'Play Stockfish', 'Six engine strengths, from beginner to master.', '/play/bot'],
-  ['03', 'Puzzles', 'Six composed positions for your scorebook.', '/puzzles'],
-  ['04', 'Play online', 'Rooms and correspondence tables are being prepared.', '/online'],
+  ['03', 'Puzzles', `${puzzles.length} composed and licensed studies for your scorebook.`, '/puzzles'],
+  ['04', 'Play online', 'Private invitations and live matchmaking with server clocks.', '/online'],
 ]
 
 export function HomePage() {

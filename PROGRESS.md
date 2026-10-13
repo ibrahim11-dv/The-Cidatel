@@ -1,5 +1,13 @@
 # The Citadel — implementation checkpoint
 
+## 13 October 2026: account-backed puzzle progress
+
+Signed-in puzzle players now load and save their completed studies and attempt statistics through an authenticated, account-isolated server resource. Existing browser-local account progress migrates on first use when the server has no saved record; guests continue to play without an account and retain browser-local progress. The puzzle board waits for an account snapshot before accepting a move, serializes saves in order, and plainly reports when the server is unavailable while retaining a local fallback.
+
+The server validates progress shape and mutually consistent counters before persistence, and the integration test proves authentication, account isolation, save/restore and invalid-input rejection. The full server suite, focused client storage/stat/data/category checks and the production client build pass. This records learning state rather than validating puzzle solutions on the server; broader licensed coverage, alternate multi-move branches and browser acceptance remain open.
+
+Commit message: feat(puzzles): persist account progress and attempt statistics
+
 ## 13 October 2026: tactical category browsing
 
 The puzzle index now derives its categories from the study metadata and lets a player filter the ten available studies by theme. Choosing a category immediately keeps the displayed study within that category; Next wraps through the filtered set rather than jumping to an unrelated study. The selected study also exposes all of its category tags alongside its analysis.
