@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 @Service
 public class PrivateGames {
     private static final long RECONNECT_GRACE_NANOS = 120_000_000_000L;
+    public record HistoryItem(UUID id, UUID white, UUID black, List<String> moves, GameSession.Result result, long savedAtMillis) {}
     public record Invitation(UUID code, UUID host, int seconds, int increment, Instant expiresAt, UUID gameId) {}
     public record Lobby(GameSession.Snapshot game, Invitation invitation) {}
     public synchronized Lobby lobby(UUID player) {
@@ -299,6 +300,18 @@ public class PrivateGames {
             return null;
         }
         return state;
+    }
+
+    public synchronized List<HistoryItem> history(UUID player) {
+        if (store == null) return games.values().stream()
+                .map(game -> game.save(System.currentTimeMillis()))
+                .filter(saved -> saved.result() != null && (saved.white().equals(player) || saved.black().equals(player)))
+                .map(this::historyItem).toList();
+        return store.finishedFor(player).stream().map(this::historyItem).toList();
+    }
+
+    private HistoryItem historyItem(GameSession.Saved saved) {
+        return new HistoryItem(saved.id(), saved.white(), saved.black(), saved.moves(), saved.result(), saved.savedAtMillis());
     }
 
     private void requireAvailable(UUID player) {

@@ -1,5 +1,17 @@
 # The Citadel — implementation checkpoint
 
+## 13 October 2026: authoritative profile study totals
+
+The signed-in Profile scorebook now fetches its solved-study total from the account-backed puzzle-progress resource, so a player sees their progress on another browser without first opening the puzzle room. The browser cache remains the fallback when the server cannot be reached, and a successful account response refreshes that cache. Focused account/puzzle-stat checks and the production client build pass.
+
+Commit message: fix(profile): load solved studies from account progress
+
+## 13 October 2026: local board-view setup
+
+Local play now offers an explicit Board view selection alongside the time control, so players can begin or switch a shared-table game with either White or Black at the bottom. The existing Flip board action remains available during play. Focused local-rule checks and the production client build pass.
+
+Commit message: feat(local): add explicit shared-board orientation setup
+
 ## 13 October 2026: puzzle difficulty progression
 
 Puzzle lists now order studies from introductory composed positions through the accurately supplied Lichess ratings. Each study states a concrete objective, and a new Continue progression control selects the easiest unfinished study in the active tactical category. Completing every study in that category switches the control to an honest completion state. The expanded controls wrap cleanly at narrower widths.

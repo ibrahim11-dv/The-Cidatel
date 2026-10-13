@@ -32,6 +32,9 @@ public class GameController {
     @GetMapping("/active")
     public GameSession.Snapshot active(Authentication auth) { return games.active(player(auth)); }
 
+    @GetMapping("/history")
+    public java.util.List<PrivateGames.HistoryItem> history(Authentication auth) { return games.history(player(auth)); }
+
     @PostMapping("/matchmaking")
     public PrivateGames.QueueState matchmaking(Authentication auth, @Valid @RequestBody Setup setup) {
         return games.findOpponent(player(auth), setup.seconds(), setup.increment());

@@ -17,7 +17,7 @@ export function OnlinePage() {
 
 function PrivateTable({ account }) {
   const key = `citadel-online-${account.id}`
-  const [id, setId] = useState(() => localStorage.getItem(key) || '')
+  const [id, setId] = useState(() => new URLSearchParams(location.search).get('game') || localStorage.getItem(key) || '')
   const [game, setGame] = useState(null)
   const [players, setPlayers] = useState(null)
   const [rematch, setRematch] = useState(null)
@@ -37,7 +37,14 @@ function PrivateTable({ account }) {
   useEffect(() => { setIntendedMove('') }, [game?.fen])
   const version = useRef(0)
   const pending = useRef(false)
-  const accept = (state) => { setSearching(false); setGame({ ...state, receivedAt: performance.now() }); setId(state.id); localStorage.setItem(key, state.id); setConnected(true) }
+  const accept = (state) => {
+    setSearching(false)
+    setGame({ ...state, receivedAt: performance.now() })
+    setId(state.id)
+    if (state.result) localStorage.removeItem(key)
+    else localStorage.setItem(key, state.id)
+    setConnected(true)
+  }
   useEffect(() => {
     setPlayers(null)
     if (!id) return

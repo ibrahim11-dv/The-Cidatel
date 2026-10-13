@@ -127,6 +127,11 @@ class GameHttpIntegrationTest {
         JsonNode finalState = call(reconnected, "GET", game, null, 200);
         assertEquals(ended.get("result"), finalState.get("result"));
         assertEquals(ended.get("clocks"), finalState.get("clocks"));
+        JsonNode hostHistory = call(reconnected, "GET", "/api/games/history", null, 200);
+        assertEquals(joined.get("id"), hostHistory.get(0).get("id"));
+        assertEquals(ended.get("result"), hostHistory.get(0).get("result"));
+        assertEquals(2, hostHistory.get(0).get("moves").size());
+        assertEquals(0, call(outsider, "GET", "/api/games/history", null, 200).size());
     }
 
     @Test void drawAgreementRequiresTheOpponentsAuthenticatedConsent() throws Exception {

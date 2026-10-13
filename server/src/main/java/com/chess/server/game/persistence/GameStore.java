@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.PageRequest;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,6 +31,11 @@ public class GameStore {
 
     @Transactional(readOnly = true)
     public List<GameSession.Saved> active() { return repository.findByFinishedFalse().stream().map(this::decode).toList(); }
+
+    @Transactional(readOnly = true)
+    public List<GameSession.Saved> finishedFor(UUID player) {
+        return repository.findFinishedByPlayer(player, PageRequest.of(0, 50)).stream().map(this::decode).toList();
+    }
 
     private GameSession.Saved decode(GameEntity entity) {
         try { return json.readValue(entity.stateJson(), GameSession.Saved.class); }

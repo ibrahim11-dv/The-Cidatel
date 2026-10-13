@@ -84,6 +84,7 @@ export const gameApi = {
   matchmaking: (seconds, increment) => request('/games/matchmaking', { method: 'POST', body: { seconds, increment }, authenticated: true }),
   cancelMatchmaking: () => request('/games/matchmaking', { method: 'DELETE', authenticated: true }),
   active: () => request('/games/active', { authenticated: true }),
+  history: () => request('/games/history', { authenticated: true }),
   offerDraw: (id) => request(`/games/${encodeURIComponent(id)}/draw/offer`, { method: 'POST', authenticated: true }),
   respondToDraw: (id, accept) => request(`/games/${encodeURIComponent(id)}/draw/${accept ? 'accept' : 'decline'}`, { method: 'POST', authenticated: true }),
   create: (seconds, increment) => request('/games/invitations', { method: 'POST', authenticated: true, body: { seconds, increment } }),
