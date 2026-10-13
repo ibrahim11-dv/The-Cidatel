@@ -1,5 +1,17 @@
 # The Citadel — implementation checkpoint
 
+## 13 October 2026: automatic online draw-rule coverage
+
+The server already adjudicated the mandatory fivefold repetition and seventy-five-move rules after every accepted online move. New session-level tests now prove that both conditions terminate the authoritative game and stop its clocks, instead of relying on lower-level rule-engine checks alone.
+
+Commit message: test(online): cover automatic draw adjudication
+
+## 13 October 2026: online premoves
+
+Online players can now queue one move while their opponent is thinking. The shared board exposes that player's legal options without changing the displayed server position. When the next server snapshot makes it their turn, the client submits the queued move with the current ply and a unique command ID; the server still validates every move, so an opponent move that invalidates the premove leaves the official game untouched and returns the existing error. Players can cancel a queued premove at any time.
+
+Commit message: feat(online): queue server-validated premoves
+
 ## 13 October 2026: Stockfish engine attribution
 
 The bot setup now credits the bundled Stockfish 19 engine and its Stockfish.js WebAssembly wrapper, with direct links to both source projects. The existing browser preparation step already publishes the package's full GPL-3.0 text at `/stockfish/COPYING.txt`; the bot screen now links to it plainly. Difficulty guidance continues to avoid uncalibrated Elo claims.

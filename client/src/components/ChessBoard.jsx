@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Chess } from 'chess.js'
 import { useSession } from '../context/SessionContext'
 import { ChessPiece } from './ChessPiece'
+import { premoveFen } from '../lib/premove'
 
 const PIECES = {
   w: { p: '♙', n: '♘', b: '♗', r: '♖', q: '♕', k: '♔' },
@@ -14,7 +15,7 @@ export function pieceGlyph(piece) {
   return piece ? PIECES[piece.color][piece.type] : ''
 }
 
-export function ChessBoard({ fen, onMove, flipped = false, interactive = true, lastMove = null, label = 'Chessboard' }) {
+export function ChessBoard({ fen, onMove, flipped = false, interactive = true, lastMove = null, label = 'Chessboard', premoveColor = null }) {
   const { preferences, boardOptions } = useSession()
   const boardRef = useRef(null)
   const previousFen = useRef(fen)
@@ -23,9 +24,10 @@ export function ChessBoard({ fen, onMove, flipped = false, interactive = true, l
   const drag = useRef(null)
   const suppressClick = useRef(false)
   const game = useMemo(() => new Chess(fen), [fen])
+  const inputGame = useMemo(() => premoveColor && game.turn() !== premoveColor ? new Chess(premoveFen(fen, premoveColor)) : game, [fen, game, premoveColor])
   const files = flipped ? ['h', 'g', 'f', 'e', 'd', 'c', 'b', 'a'] : ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
   const ranks = flipped ? [1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1]
-  const options = selected ? game.moves({ square: selected, verbose: true }) : []
+  const options = selected ? inputGame.moves({ square: selected, verbose: true }) : []
   const targets = new Set(options.map((move) => move.to))
 
   useLayoutEffect(() => {
@@ -90,7 +92,7 @@ export function ChessBoard({ fen, onMove, flipped = false, interactive = true, l
       return
     }
 
-    if (piece?.color === game.turn()) setSelected(square)
+    if (piece?.color === inputGame.turn()) setSelected(square)
     else setSelected(null)
   }
 
@@ -114,7 +116,7 @@ export function ChessBoard({ fen, onMove, flipped = false, interactive = true, l
                 className={`square ${isDark ? 'dark' : 'light'} ${selected === square ? 'selected' : ''} ${isLastMove ? 'last-move' : ''} ${isTarget ? 'target' : ''} ${piece?.type === 'k' && piece.color === game.turn() && game.isCheck() ? 'in-check' : ''}`}
                 onClick={() => { if (suppressClick.current) { suppressClick.current = false; return } chooseSquare(square) }}
                 onPointerDown={(event) => {
-                  if (!interactive || promotion || piece?.color !== game.turn() || event.button !== 0) return
+                  if (!interactive || promotion || piece?.color !== inputGame.turn() || event.button !== 0) return
                   drag.current = { square, x: event.clientX, y: event.clientY }
                   event.currentTarget.setPointerCapture(event.pointerId)
                 }}
@@ -125,7 +127,7 @@ export function ChessBoard({ fen, onMove, flipped = false, interactive = true, l
                   suppressClick.current = true
                   const target = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-square]')
                   if (!target || !event.currentTarget.parentElement.contains(target)) return
-                  const candidates = game.moves({ square: start.square, verbose: true }).filter((move) => move.to === target.dataset.square)
+                  const candidates = inputGame.moves({ square: start.square, verbose: true }).filter((move) => move.to === target.dataset.square)
                   if (!candidates.length) return
                   if (candidates.some((move) => move.promotion)) setPromotion({ from: start.square, to: target.dataset.square })
                   else commit(candidates[0])
@@ -157,7 +159,7 @@ export function ChessBoard({ fen, onMove, flipped = false, interactive = true, l
           <div>
             {['q', 'r', 'b', 'n'].map((type) => (
               <button autoFocus={type === 'q'} key={type} type="button" onClick={() => commit({ ...promotion, promotion: type })} aria-label={`Promote to ${NAMES[type]}`}>
-                {PIECES[game.turn()][type]}
+                {PIECES[inputGame.turn()][type]}
               </button>
             ))}
           </div>

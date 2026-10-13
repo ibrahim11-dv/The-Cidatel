@@ -9,6 +9,7 @@ import { MoveLedger, CapturedPieces } from '../components/MoveLedger'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { OnlineClock } from '../components/OnlineClock'
 import { onlineRecord, onlineReview } from '../lib/onlineRecord'
+import { premoveText } from '../lib/premove'
 
 export function OnlinePage() {
   const { session } = useSession()
@@ -33,15 +34,21 @@ function PrivateTable({ account }) {
   const [confirm, setConfirm] = useState(false)
   const [flip, setFlip] = useState(false)
   const [intendedMove, setIntendedMove] = useState('')
+  const [premove, setPremove] = useState(null)
   const [review, setReview] = useState(null)
   useEffect(() => { setIntendedMove('') }, [game?.fen])
   const version = useRef(0)
   const pending = useRef(false)
+  const queuedPremove = useRef(null)
   const accept = (state) => {
     setSearching(false)
     setGame({ ...state, receivedAt: performance.now() })
     setId(state.id)
-    if (state.result) localStorage.removeItem(key)
+    if (state.result) {
+      localStorage.removeItem(key)
+      queuedPremove.current = null
+      setPremove(null)
+    }
     else localStorage.setItem(key, state.id)
     setConnected(true)
   }
@@ -136,6 +143,23 @@ function PrivateTable({ account }) {
   const flipped = flip !== !white
   const myTurn = game && new Chess(game.fen).turn() === (white ? 'w' : 'b')
   const claimMoves = useMemo(() => game ? new Chess(game.fen).moves({ verbose: true }) : [], [game?.fen])
+  useEffect(() => {
+    if (!premove || !game || game.result || !myTurn || !connected || pending.current) return
+    const move = premove
+    queuedPremove.current = null
+    setPremove(null)
+    action(async () => accept(await gameApi.move(id, { commandId: crypto.randomUUID(), expectedPly: game.moves.length, move: `${move.from}${move.to}${move.promotion || ''}` })))
+  }, [premove, game?.fen, game?.moves?.length, game?.result, myTurn, connected, busy, id])
+  function playOnlineMove(move) {
+    if (!myTurn) {
+      queuedPremove.current = move
+      setPremove(move)
+      setNotice(`Premove queued: ${premoveText(move)}. It will be checked by the server after your opponent moves.`)
+      return true
+    }
+    void action(async () => accept(await gameApi.move(id, { commandId: crypto.randomUUID(), expectedPly: game.moves.length, move: `${move.from}${move.to}${move.promotion || ''}` })))
+    return true
+  }
   function clock(side) {
     return <div className="player-strip"><span>{side} · {players?.[side] || ((side === 'white') === white ? account.username : 'Opponent')}</span><OnlineClock clocks={game.clocks} side={side} receivedAt={game.receivedAt} finished={!!game.result} /></div>
   }
@@ -146,10 +170,11 @@ function PrivateTable({ account }) {
     {game ? <div className="game-layout"><div>
       {clock(flipped ? 'white' : 'black')}
       {reviewing && <p role="status">Reviewing move {displayed.ply} of {history.length}.{!game.result && ' The live clocks continue.'}</p>}
-      <ChessBoard fen={reviewing ? displayed.fen : game.fen} flipped={flipped} lastMove={displayed.lastMove} interactive={!reviewing && connected && !busy && !game.result && myTurn} onMove={(move) => action(async () => accept(await gameApi.move(id, { commandId: crypto.randomUUID(), expectedPly: game.moves.length, move: `${move.from}${move.to}${move.promotion || ''}` })))} />
+      <ChessBoard fen={reviewing ? displayed.fen : game.fen} flipped={flipped} lastMove={displayed.lastMove} interactive={!reviewing && connected && !busy && !game.result} premoveColor={white ? 'w' : 'b'} onMove={playOnlineMove} />
       {clock(flipped ? 'black' : 'white')}<CapturedPieces history={displayed.history} />
     </div><aside className="game-panel"><h2>{game.result ? `${game.result.score} · ${game.result.reason}` : myTurn ? 'Your move' : 'Opponent to move'}</h2>
       <button className="quiet-button" onClick={() => setFlip(!flip)}>Flip board</button>
+      {premove && !game.result && <p className="small-note" role="status">Queued premove: {premoveText(premove)} <button type="button" className="text-button" onClick={() => { queuedPremove.current = null; setPremove(null); setNotice('Premove cancelled.') }}>Cancel</button></p>}
       {!game.result && <button className="quiet-button" disabled={busy || !connected} onClick={() => setConfirm(true)}>Resign</button>}
       {!game.result && (game.drawOfferedBy ? game.drawOfferedBy === account.id ? <p role="status">Draw offered. Waiting for your opponent.</p> : <div role="group" aria-label="Opponent draw offer"><p>Your opponent offers a draw.</p><button className="primary-button" disabled={busy || !connected} onClick={() => action(async () => accept(await gameApi.respondToDraw(id, true)))}>Accept draw</button><button className="quiet-button" disabled={busy || !connected} onClick={() => action(async () => accept(await gameApi.respondToDraw(id, false)))}>Decline draw</button></div> : <button className="quiet-button" disabled={busy || !connected} onClick={() => action(async () => accept(await gameApi.offerDraw(id)))}>Offer draw</button>)}
       <MoveLedger history={history} activePly={reviewing ? displayed.ply : null} onSelect={selectPly} />

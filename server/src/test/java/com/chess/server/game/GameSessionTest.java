@@ -88,6 +88,24 @@ class GameSessionTest {
         assertEquals("checkmate", game.resign(black).result().reason());
     }
 
+    @Test void automaticallyEndsAtFivefoldRepetition() {
+        GameSession game = new GameSession(white, black, 60, 0);
+        String[] cycle = {"g1f3", "g8f6", "f3g1", "f6g8"};
+        for (int ply = 0; ply < 16; ply++) {
+            game.move(ply % 2 == 0 ? white : black, UUID.randomUUID(), ply, cycle[ply % cycle.length]);
+        }
+        assertEquals(new GameSession.Result("1/2-1/2", "fivefold repetition"), game.snapshot(white).result());
+        assertNull(game.snapshot(black).clocks().running());
+    }
+
+    @Test void automaticallyEndsAtSeventyFiveMovesWithoutAPawnMoveOrCapture() {
+        ChessPosition position = new ChessPosition("7k/8/8/8/8/8/8/R6K w - - 149 1");
+        GameSession game = new GameSession(white, black, position, new GameClock(60, 0));
+        GameSession.Snapshot ended = game.move(white, UUID.randomUUID(), 0, "a1a2");
+        assertEquals(new GameSession.Result("1/2-1/2", "seventy-five move rule"), ended.result());
+        assertNull(ended.clocks().running());
+    }
+
     @Test void expiryPrecedesMovesAndResignation() {
         AtomicLong now = new AtomicLong();
         GameSession game = new GameSession(white, black, new ChessPosition(), new GameClock(15, 1, now::get));
