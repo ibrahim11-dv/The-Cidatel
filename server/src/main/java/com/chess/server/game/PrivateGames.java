@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 /** Single-process game registry backed by durable checkpoints. Waiting rooms remain transient. */
 @Service
 public class PrivateGames {
+    private static final long RECONNECT_GRACE_NANOS = 120_000_000_000L;
     public record Invitation(UUID code, UUID host, int seconds, int increment, Instant expiresAt, UUID gameId) {}
     public record Lobby(GameSession.Snapshot game, Invitation invitation) {}
     public synchronized Lobby lobby(UUID player) {
@@ -25,6 +26,7 @@ public class PrivateGames {
     private GameStore store;
     private final Set<UUID> persistedFinished = new HashSet<>();
     private final Map<UUID, Long> finishedSince = new HashMap<>();
+    private final Map<UUID, Long> lastSeen = new HashMap<>();
 
     @Autowired
     public PrivateGames(GameStore store) {
@@ -38,6 +40,8 @@ public class PrivateGames {
         for (GameSession.Saved saved : store.active()) {
             GameSession game = GameSession.restore(saved, now);
             games.put(saved.id(), game);
+            lastSeen.put(saved.white(), monotonic.getAsLong());
+            lastSeen.put(saved.black(), monotonic.getAsLong());
             var state = game.snapshot(saved.white());
             if (state.result() == null) {
                 if (activeByPlayer.putIfAbsent(saved.white(), saved.id()) != null
@@ -57,6 +61,8 @@ public class PrivateGames {
             finishedSince.putIfAbsent(saved.id(), monotonic.getAsLong());
             activeByPlayer.remove(saved.white(), saved.id());
             activeByPlayer.remove(saved.black(), saved.id());
+            lastSeen.remove(saved.white());
+            lastSeen.remove(saved.black());
         }
     }
 
@@ -68,11 +74,19 @@ public class PrivateGames {
         invitations.values().removeIf(invite -> !invite.expiresAt().isAfter(wallTime));
         for (var entry : games.entrySet()) {
             if (persistedFinished.contains(entry.getKey())) continue;
-            var saved = entry.getValue().save(System.currentTimeMillis());
+            GameSession game = entry.getValue();
+            var saved = game.save(System.currentTimeMillis());
             if (saved.result() != null) {
-                persist(entry.getValue());
+                persist(game);
                 activeByPlayer.remove(saved.white(), saved.id());
                 activeByPlayer.remove(saved.black(), saved.id());
+                continue;
+            }
+            boolean whiteAway = absent(saved.white(), now);
+            boolean blackAway = absent(saved.black(), now);
+            if (whiteAway || blackAway) {
+                game.abandon(whiteAway ? GameClock.Side.WHITE : GameClock.Side.BLACK, whiteAway && blackAway);
+                persist(game);
             }
         }
         // Keep a fifteen-minute rematch window; durable completed records remain queryable.
@@ -90,6 +104,7 @@ public class PrivateGames {
     public synchronized GameSession.Snapshot state(UUID id, UUID player) {
         GameSession game = get(id);
         var state = game.snapshot(player);
+        touch(player);
         if (state.result() != null && !persistedFinished.contains(id)) persist(game);
         return state;
     }
@@ -106,6 +121,13 @@ public class PrivateGames {
             games.put(id, GameSession.restore(before, System.currentTimeMillis()));
             throw failure;
         }
+    }
+
+    public synchronized GameSession.Snapshot change(UUID id, UUID player, java.util.function.Function<GameSession, GameSession.Snapshot> operation) {
+        GameSession.Snapshot result = change(id, operation);
+        if (!player.equals(result.white()) && !player.equals(result.black())) throw new SecurityException("You are not a player in this game.");
+        touch(player);
+        return result;
     }
     public record Rematch(UUID requestedBy, UUID gameId) {}
     private final Map<UUID, Rematch> rematches = new HashMap<>();
@@ -134,6 +156,8 @@ public class PrivateGames {
         games.put(state.id(), next);
         activeByPlayer.put(state.white(), state.id());
         activeByPlayer.put(state.black(), state.id());
+        touch(state.white());
+        touch(state.black());
         queue.remove(state.white());
         queue.remove(state.black());
         invitations.values().removeIf(invite -> invite.gameId() == null
@@ -185,6 +209,8 @@ public class PrivateGames {
         games.put(state.id(), game);
         activeByPlayer.put(player, state.id());
         activeByPlayer.put(opponent, state.id());
+        touch(player);
+        touch(opponent);
         queue.remove(player);
         queue.remove(opponent);
         return new QueueState(false, state.id());
@@ -225,6 +251,8 @@ public class PrivateGames {
         games.put(snapshot.id(), game);
         activeByPlayer.put(invite.host(), snapshot.id());
         activeByPlayer.put(player, snapshot.id());
+        touch(invite.host());
+        touch(player);
         queue.remove(invite.host());
         queue.remove(player);
         invitations.values().removeIf(other -> other.gameId() == null && other.host().equals(player));
@@ -281,5 +309,13 @@ public class PrivateGames {
         Invitation invite = invitations.get(code);
         if (invite == null || invite.expiresAt().isBefore(Instant.now())) throw new NoSuchElementException("Invitation expired or not found.");
         return invite;
+    }
+
+    private void touch(UUID player) {
+        lastSeen.put(player, monotonic.getAsLong());
+    }
+
+    private boolean absent(UUID player, long now) {
+        return now - lastSeen.getOrDefault(player, now) >= RECONNECT_GRACE_NANOS;
     }
 }

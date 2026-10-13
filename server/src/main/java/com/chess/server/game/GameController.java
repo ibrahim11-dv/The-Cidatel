@@ -62,20 +62,20 @@ public class GameController {
     public GameSession.Snapshot state(Authentication auth, @PathVariable UUID id) { return games.state(id, player(auth)); }
     @PostMapping("/{id}/moves")
     public GameSession.Snapshot move(Authentication auth, @PathVariable UUID id, @Valid @RequestBody MoveRequest request) {
-        return games.change(id, game -> game.move(player(auth), request.commandId(), request.expectedPly(), request.move()));
+        return games.change(id, player(auth), game -> game.move(player(auth), request.commandId(), request.expectedPly(), request.move()));
     }
     @PostMapping("/{id}/resign")
-    public GameSession.Snapshot resign(Authentication auth, @PathVariable UUID id) { return games.change(id, game -> game.resign(player(auth))); }
+    public GameSession.Snapshot resign(Authentication auth, @PathVariable UUID id) { return games.change(id, player(auth), game -> game.resign(player(auth))); }
 
     @PostMapping("/{id}/draw/offer")
-    public GameSession.Snapshot offerDraw(Authentication auth, @PathVariable UUID id) { return games.change(id, game -> game.offerDraw(player(auth))); }
+    public GameSession.Snapshot offerDraw(Authentication auth, @PathVariable UUID id) { return games.change(id, player(auth), game -> game.offerDraw(player(auth))); }
     @PostMapping("/{id}/draw/accept")
-    public GameSession.Snapshot acceptDraw(Authentication auth, @PathVariable UUID id) { return games.change(id, game -> game.respondToDraw(player(auth), true)); }
+    public GameSession.Snapshot acceptDraw(Authentication auth, @PathVariable UUID id) { return games.change(id, player(auth), game -> game.respondToDraw(player(auth), true)); }
     @PostMapping("/{id}/draw/decline")
-    public GameSession.Snapshot declineDraw(Authentication auth, @PathVariable UUID id) { return games.change(id, game -> game.respondToDraw(player(auth), false)); }
+    public GameSession.Snapshot declineDraw(Authentication auth, @PathVariable UUID id) { return games.change(id, player(auth), game -> game.respondToDraw(player(auth), false)); }
     @PostMapping("/{id}/draw/claim")
     public GameSession.Snapshot claimDraw(Authentication auth, @PathVariable UUID id, @Valid @RequestBody ClaimRequest request) {
-        return games.change(id, game -> game.claimDraw(player(auth), request.expectedPly(), request.intendedMove()));
+        return games.change(id, player(auth), game -> game.claimDraw(player(auth), request.expectedPly(), request.intendedMove()));
     }
 }
 

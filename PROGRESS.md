@@ -1,5 +1,11 @@
 # The Citadel — implementation checkpoint
 
+## 13 October 2026: accurate home-mode descriptions
+
+The home screen now describes the available product accurately: it reports the current puzzle-study count and identifies online play as live private invitations and matchmaking with server-authoritative clocks. Removed language implying those working modes were still being prepared. The production client build passes.
+
+Commit message: fix(home): describe available online and puzzle modes accurately
+
 ## 13 October 2026: account-backed puzzle progress
 
 Signed-in puzzle players now load and save their completed studies and attempt statistics through an authenticated, account-isolated server resource. Existing browser-local account progress migrates on first use when the server has no saved record; guests continue to play without an account and retain browser-local progress. The puzzle board waits for an account snapshot before accepting a move, serializes saves in order, and plainly reports when the server is unavailable while retaining a local fallback.

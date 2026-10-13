@@ -118,6 +118,15 @@ public final class GameSession {
         return view();
     }
 
+    /** Called only by the server registry after its reconnect grace period expires. */
+    synchronized Snapshot abandon(GameClock.Side absent, boolean bothAbsent) {
+        updateTimeout();
+        if (result == null) {
+            finish(bothAbsent ? "1/2-1/2" : absent == GameClock.Side.WHITE ? "0-1" : "1-0", "abandonment");
+        }
+        return view();
+    }
+
     public synchronized Snapshot offerDraw(UUID player) {
         requireActive(player);
         if (drawOfferedBy != null && !drawOfferedBy.equals(player)) {
