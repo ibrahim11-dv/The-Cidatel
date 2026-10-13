@@ -18,10 +18,11 @@ export function SettingsPage() {
     } catch (error) { setNotice(error.message) }
     finally { setSavingPieces(false) }
   }
-  const [theme, setTheme] = useState(readTheme)
+  const [theme, setTheme] = useState(() => session?.preferences?.siteTheme || readTheme())
   const [custom, setCustom] = useState(() => session?.preferences?.customColors || readCustomColors())
   const [colorsDirty, setColorsDirty] = useState(false)
   const [savingColors, setSavingColors] = useState(false)
+  const [savingTheme, setSavingTheme] = useState(false)
   const accountColorsKey = JSON.stringify(preferences.customColors || {})
   useEffect(() => {
     if (!session) return
@@ -29,6 +30,12 @@ export function SettingsPage() {
     setCustom(saved)
     setColorsDirty(false)
   }, [session?.id, accountColorsKey])
+  useEffect(() => {
+    if (!session) return
+    const savedTheme = preferences.siteTheme || 'walnut'
+    setTheme(savedTheme)
+    applyTheme(savedTheme, preferences.customColors || {})
+  }, [session?.id, preferences.siteTheme])
   const colors = themeColors(theme, custom)
   const contrastIssues = colorContrastIssues(colors)
   function customize(value) {
@@ -49,11 +56,19 @@ export function SettingsPage() {
     finally { setSavingColors(false) }
   }
   const [notice, setNotice] = useState('Saved on this browser, including for guests.')
-  function choose(id) {
+  async function choose(id) {
+    if (savingTheme) return
     applyTheme(id, custom)
     setTheme(id)
-    try { localStorage.setItem('citadel:theme', id); setNotice('Appearance saved on this browser.') }
+    try { localStorage.setItem('citadel:theme', id); setNotice(session ? 'Appearance applied. Saving it to your account…' : 'Appearance saved on this browser.') }
     catch { setNotice('Appearance applied. Browser storage is unavailable, so it cannot be saved.') }
+    if (!session) return
+    setSavingTheme(true)
+    try {
+      await setPreferences({ siteTheme: id })
+      setNotice('Appearance saved to your account.')
+    } catch (error) { setNotice(`${error.message} Your preview remains available on this browser.`) }
+    finally { setSavingTheme(false) }
   }
   function option(patch) {
     setNotice(updateBoardOptions(patch) ? 'Board preferences saved on this browser.' : 'Preferences applied but browser storage is unavailable.')
@@ -61,9 +76,9 @@ export function SettingsPage() {
   }
   return <section><header className="page-heading"><p className="eyebrow">Your club, your colors</p><h1>Appearance</h1><p>Choose the materials and atmosphere for your next game.</p></header>
     <div className="appearance-studio"><ChessBoard fen={STARTING_FEN} interactive={false} label="Theme preview" />
-      <div><div className="theme-grid">{THEMES.map((item) => <button key={item.id} className={`theme-choice ${theme === item.id ? 'selected' : ''}`} aria-pressed={theme === item.id} onClick={() => choose(item.id)}>
+      <div><div className="theme-grid">{THEMES.map((item) => <button key={item.id} className={`theme-choice ${theme === item.id ? 'selected' : ''}`} aria-pressed={theme === item.id} disabled={savingTheme} onClick={() => void choose(item.id)}>
         <span className="theme-swatch" style={{ background: item.colors['--paper'] }}><i style={{ background: item.colors['--wood-light'] }} /><i style={{ background: item.colors['--wood-dark'] }} /><i style={{ background: item.colors['--brass'] }} /></span><b>{item.name}</b>
-      </button>)}</div><p role="status" className="small-note">{notice}</p><button className="quiet-button" onClick={() => choose('walnut')}>Reset to Classic Walnut</button></div>
+      </button>)}</div><p role="status" className="small-note">{notice}</p><button className="quiet-button" disabled={savingTheme} onClick={() => void choose('walnut')}>Reset to Classic Walnut</button></div>
     </div>
     <section className="board-settings" aria-label="Custom colors"><h2>Make it yours</h2>
       <p>Custom colors stay applied when you change presets. Reset them to see the original palette. Choose contrasting text and background colors.</p>

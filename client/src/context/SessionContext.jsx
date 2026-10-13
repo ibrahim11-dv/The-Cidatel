@@ -18,13 +18,14 @@ export function SessionProvider({ children }) {
   const [boardOptions, setBoardOptions] = useState(readBoardOptions)
   const [guestPreferences, setGuestPreferences] = useState(getGuestPreferences)
   const accountColorsKey = JSON.stringify(session?.preferences?.customColors || {})
+  const accountTheme = session?.preferences?.siteTheme
 
   useEffect(() => {
     if (!session) return
     const colors = session.preferences?.customColors || {}
     saveCustomColors(colors)
-    applyTheme(readTheme(), colors)
-  }, [session?.id, accountColorsKey])
+    applyTheme(accountTheme || readTheme(), colors)
+  }, [session?.id, accountColorsKey, accountTheme])
 
   useEffect(() => {
     if (!session) return undefined

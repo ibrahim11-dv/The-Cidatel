@@ -10,6 +10,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { OnlineClock } from '../components/OnlineClock'
 import { onlineRecord, onlineReview } from '../lib/onlineRecord'
 import { premoveText } from '../lib/premove'
+import { formatOnlineTimeControl, selectedOnlineTimeControl, selectionForOnlineTimeControl } from '../lib/onlineTimeControl'
 
 export function OnlinePage() {
   const { session } = useSession()
@@ -27,6 +28,8 @@ function PrivateTable({ account }) {
   const queueRequest = useRef(null)
   const [code, setCode] = useState(() => new URLSearchParams(location.search).get('invite') || '')
   const [control, setControl] = useState('5+3')
+  const [customSeconds, setCustomSeconds] = useState('300')
+  const [customIncrement, setCustomIncrement] = useState('0')
   const [busy, setBusy] = useState(false)
   const [checkingActive, setCheckingActive] = useState(true)
   const [connected, setConnected] = useState(false)
@@ -36,6 +39,13 @@ function PrivateTable({ account }) {
   const [intendedMove, setIntendedMove] = useState('')
   const [premove, setPremove] = useState(null)
   const [review, setReview] = useState(null)
+  const timeControl = selectedOnlineTimeControl(control, customSeconds, customIncrement)
+  const applyTimeControl = (seconds, increment) => {
+    const choice = selectionForOnlineTimeControl(seconds, increment, TIME_CONTROLS.filter(([value]) => value !== '0+0'))
+    setControl(choice.selection)
+    setCustomSeconds(choice.customSeconds)
+    setCustomIncrement(choice.customIncrement)
+  }
   useEffect(() => { setIntendedMove('') }, [game?.fen])
   const version = useRef(0)
   const pending = useRef(false)
@@ -69,7 +79,7 @@ function PrivateTable({ account }) {
         localStorage.removeItem(key)
         setId('')
         setRoom(state.invitation)
-        setControl(`${state.invitation.seconds / 60}+${state.invitation.increment}`)
+        applyTimeControl(state.invitation.seconds, state.invitation.increment)
       }
     }).catch((error) => { if (!cancelled) setNotice(error.message) })
       .finally(() => { if (!cancelled) setCheckingActive(false) })
@@ -93,8 +103,8 @@ function PrivateTable({ account }) {
         }
         else if (room) state = await gameApi.invitation(room.code)
         else {
-          const [minutes, increment] = control.split('+').map(Number)
-          queueRequest.current = gameApi.matchmaking(minutes * 60, increment)
+          if (!timeControl) return
+          queueRequest.current = gameApi.matchmaking(timeControl.seconds, timeControl.increment)
           state = await queueRequest.current
         }
         if (!cancelled && current === version.current) {
@@ -112,7 +122,7 @@ function PrivateTable({ account }) {
     }
     sync()
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [id, room?.code, searching, control, checkingActive])
+  }, [id, room?.code, searching, timeControl?.seconds, timeControl?.increment, checkingActive])
   async function action(work) {
     if (pending.current || checkingActive) return
     pending.current = true
@@ -170,7 +180,7 @@ function PrivateTable({ account }) {
     {game ? <div className="game-layout online-game-layout"><div className="online-board-column">
       {clock(flipped ? 'white' : 'black')}
       {reviewing && <p role="status">Reviewing move {displayed.ply} of {history.length}.{!game.result && ' The live clocks continue.'}</p>}
-      <ChessBoard fen={reviewing ? displayed.fen : game.fen} flipped={flipped} lastMove={displayed.lastMove} interactive={!reviewing && connected && !busy && !game.result} premoveColor={white ? 'w' : 'b'} onMove={playOnlineMove} />
+      <ChessBoard fen={reviewing ? displayed.fen : game.fen} flipped={flipped} lastMove={displayed.lastMove} interactive={!reviewing && connected && !busy && !game.result} premoveColor={white ? 'w' : 'b'} markedSquares={premove ? [premove.from, premove.to] : []} onMove={playOnlineMove} />
       {clock(flipped ? 'black' : 'white')}<CapturedPieces history={displayed.history} />
     </div><aside className="game-panel"><h2>{game.result ? `${game.result.score} · ${game.result.reason}` : myTurn ? 'Your move' : 'Opponent to move'}</h2>
       <button className="quiet-button" onClick={() => setFlip(!flip)}>Flip board</button>
@@ -197,7 +207,7 @@ function PrivateTable({ account }) {
       </div>}
       {game.result && <button className="primary-button" onClick={() => { version.current++; localStorage.removeItem(key); setGame(null); setId(''); setRoom(null) }}>Return to online room</button>}
     </aside></div> : id ? <><p role="status">Restoring your game…</p>{!connected && <button className="quiet-button" onClick={() => { version.current++; localStorage.removeItem(key); setId('') }}>Return to online room</button>}</> : <div className="online-layout">
-      {searching ? <article className="room-card"><h2>Finding an opponent</h2><p role="status">Waiting for a player at {control.replace('+', ' + ')}. Colors are assigned randomly.</p><button className="quiet-button" disabled={busy} onClick={() => action(async () => {
+      {searching ? <article className="room-card"><h2>Finding an opponent</h2><p role="status">Waiting for a player at {timeControl && formatOnlineTimeControl(timeControl)}. Colors are assigned randomly.</p><button className="quiet-button" disabled={busy} onClick={() => action(async () => {
         await queueRequest.current?.catch(() => {})
         const state = await gameApi.cancelMatchmaking()
         setSearching(false)
@@ -205,9 +215,11 @@ function PrivateTable({ account }) {
       })}>Cancel matchmaking</button></article> : <article className="room-card"><h2>Invite a friend</h2>{room ? <>
         <p>Waiting for your opponent. Share this link:</p><input aria-label="Invitation link" readOnly value={`${location.origin}${location.pathname}?invite=${room.code}`} onFocus={(event) => event.target.select()} />
         <button className="quiet-button" disabled={busy} onClick={() => action(async () => { await gameApi.cancel(room.code); setRoom(null) })}>Cancel invitation</button>
-      </> : <><label htmlFor="online-time">Time control</label><select id="online-time" value={control} onChange={(event) => setControl(event.target.value)}>{TIME_CONTROLS.filter(([value]) => value !== '0+0').map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
-        <button className="primary-button" disabled={busy || checkingActive} onClick={() => { setNotice(''); setSearching(true) }}>Find an opponent</button>
-        <button className="quiet-button" disabled={busy || checkingActive} onClick={() => action(async () => { const [minutes, increment] = control.split('+').map(Number); setRoom(await gameApi.create(minutes * 60, increment)) })}>Create invitation</button></>}
+      </> : <><label htmlFor="online-time">Time control</label><select id="online-time" value={control} onChange={(event) => setControl(event.target.value)}>{TIME_CONTROLS.filter(([value]) => value !== '0+0').map(([value, label]) => <option key={value} value={value}>{label}</option>)}<option value="custom">Custom…</option></select>
+        {control === 'custom' && <div className="custom-time-controls"><label>Initial time (seconds)<input type="number" min="15" max="10800" step="1" value={customSeconds} onChange={(event) => setCustomSeconds(event.target.value)} /></label><label>Increment (seconds)<input type="number" min="0" max="180" step="1" value={customIncrement} onChange={(event) => setCustomIncrement(event.target.value)} /></label><p className="small-note">Choose 15 seconds to 3 hours, with up to 180 seconds added after each move.</p></div>}
+        {!timeControl && <p role="alert">Enter a whole-number clock within the stated limits.</p>}
+        <button className="primary-button" disabled={busy || checkingActive || !timeControl} onClick={() => { setNotice(''); setSearching(true) }}>Find an opponent</button>
+        <button className="quiet-button" disabled={busy || checkingActive || !timeControl} onClick={() => action(async () => { setRoom(await gameApi.create(timeControl.seconds, timeControl.increment)) })}>Create invitation</button></>}
       </article>}<article className="room-card"><h2>Join a friend</h2><label htmlFor="online-code">Invitation code</label><input id="online-code" value={code} onChange={(event) => setCode(event.target.value)} /><button className="primary-button" disabled={busy || checkingActive || searching || !code.trim() || !!room} onClick={() => action(async () => accept(await gameApi.join(code.trim())))}>Join game</button></article>
     </div>}
     {confirm && <ConfirmDialog title="Resign this game?" message="Your opponent will win." confirmLabel="Resign" onCancel={() => setConfirm(false)} onConfirm={() => { setConfirm(false); action(async () => accept(await gameApi.resign(id))) }} />}

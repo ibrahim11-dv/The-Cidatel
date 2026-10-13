@@ -45,7 +45,7 @@ const firstSession = saveAuthenticatedSession({
     id: 'account-1',
     username: 'club_qa',
     email: 'club.qa@example.test',
-    preferences: { boardTheme: 'walnut', pieceStyle: 'classic', pieceTone: 'ivory', customColors: {} },
+    preferences: { boardTheme: 'walnut', siteTheme: 'walnut', pieceStyle: 'classic', pieceTone: 'ivory', customColors: {} },
   },
 })
 
@@ -57,10 +57,10 @@ const appearanceSession = updateSavedSession({
   id: 'account-1',
   username: 'club_member',
   email: 'member@example.test',
-  preferences: { boardTheme: 'forest', pieceStyle: 'modern', pieceTone: 'brass', customColors: { '--paper': '#112233' } },
+  preferences: { boardTheme: 'forest', siteTheme: 'mahogany', pieceStyle: 'modern', pieceTone: 'brass', customColors: { '--paper': '#112233' } },
 })
 assert.equal(appearanceSession.username, 'club_member')
-assert.deepEqual(appearanceSession.preferences, { boardTheme: 'forest', pieceStyle: 'modern', pieceTone: 'brass', customColors: { '--paper': '#112233' } })
+assert.deepEqual(appearanceSession.preferences, { boardTheme: 'forest', siteTheme: 'mahogany', pieceStyle: 'modern', pieceTone: 'brass', customColors: { '--paper': '#112233' } })
 
 clearSession()
 assert.equal(getSession(), null)

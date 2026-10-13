@@ -3,9 +3,10 @@ package com.chess.server.account.domain;
 import java.util.Map;
 import java.util.Set;
 
-public record AppearancePreferences(String boardTheme, String pieceStyle, String pieceTone, Map<String, String> customColors) {
+public record AppearancePreferences(String boardTheme, String pieceStyle, String pieceTone, String siteTheme, Map<String, String> customColors) {
 
     private static final Set<String> BOARD_THEMES = Set.of("walnut", "forest", "midnight");
+    private static final Set<String> SITE_THEMES = Set.of("walnut", "oak", "mahogany", "forest", "midnight", "ivory");
     private static final Set<String> PIECE_STYLES = Set.of("classic", "modern", "manuscript");
     private static final Set<String> PIECE_TONES = Set.of("ivory", "ebony", "brass");
     private static final Set<String> COLOR_TOKENS = Set.of(
@@ -14,7 +15,8 @@ public record AppearancePreferences(String boardTheme, String pieceStyle, String
 
     public AppearancePreferences {
         customColors = customColors == null ? Map.of() : Map.copyOf(customColors);
-        if (!BOARD_THEMES.contains(boardTheme) || !PIECE_STYLES.contains(pieceStyle) || !PIECE_TONES.contains(pieceTone)) {
+        if (!BOARD_THEMES.contains(boardTheme) || !SITE_THEMES.contains(siteTheme)
+                || !PIECE_STYLES.contains(pieceStyle) || !PIECE_TONES.contains(pieceTone)) {
             throw new IllegalArgumentException("One or more appearance settings are not supported.");
         }
         if (customColors.size() > COLOR_TOKENS.size() || customColors.entrySet().stream()
@@ -24,6 +26,6 @@ public record AppearancePreferences(String boardTheme, String pieceStyle, String
     }
 
     public static AppearancePreferences defaults() {
-        return new AppearancePreferences("walnut", "classic", "ivory", Map.of());
+        return new AppearancePreferences("walnut", "classic", "ivory", "walnut", Map.of());
     }
 }

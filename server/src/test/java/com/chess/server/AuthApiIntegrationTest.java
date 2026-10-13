@@ -66,10 +66,11 @@ class AuthApiIntegrationTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"boardTheme":"forest","pieceStyle":"modern","pieceTone":"brass","customColors":{"--paper":"#112233","--legal":"#445566"}}
+                                {"boardTheme":"forest","pieceStyle":"modern","pieceTone":"brass","siteTheme":"mahogany","customColors":{"--paper":"#112233","--legal":"#445566"}}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.preferences.boardTheme").value("forest"))
+                .andExpect(jsonPath("$.preferences.siteTheme").value("mahogany"))
                 .andExpect(jsonPath("$.preferences.pieceStyle").value("modern"))
                 .andExpect(jsonPath("$.preferences.customColors['--paper']").value("#112233"));
 
@@ -80,6 +81,7 @@ class AuthApiIntegrationTest {
                                 """.formatted(email, password)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.user.username").value(username));
+                .andExpect(jsonPath("$.user.username").value(username))
+                .andExpect(jsonPath("$.user.preferences.siteTheme").value("mahogany"));
     }
 }

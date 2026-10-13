@@ -38,6 +38,10 @@ public class UserEntity {
     private String pieceTone;
 
     // Nullable keeps existing installed accounts compatible with this additive schema update.
+    @Column(length = 20)
+    private String siteTheme;
+
+    // Nullable keeps existing installed accounts compatible with this additive schema update.
     @Column(length = 512)
     private String customColors;
 
@@ -55,6 +59,7 @@ public class UserEntity {
         boardTheme = account.preferences().boardTheme();
         pieceStyle = account.preferences().pieceStyle();
         pieceTone = account.preferences().pieceTone();
+        siteTheme = account.preferences().siteTheme();
         customColors = encodeColors(account.preferences().customColors());
         createdAt = account.createdAt();
     }
@@ -69,7 +74,8 @@ public class UserEntity {
                 username,
                 email,
                 passwordHash,
-                new AppearancePreferences(boardTheme, pieceStyle, pieceTone, decodeColors(customColors)),
+                new AppearancePreferences(boardTheme, pieceStyle, pieceTone,
+                        siteTheme == null || siteTheme.isBlank() ? "walnut" : siteTheme, decodeColors(customColors)),
                 createdAt
         );
     }

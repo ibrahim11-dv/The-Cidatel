@@ -8,6 +8,7 @@ public record UpdateAppearanceRequest(
         @NotBlank @Pattern(regexp = "walnut|forest|midnight") String boardTheme,
         @NotBlank @Pattern(regexp = "classic|modern|manuscript") String pieceStyle,
         @NotBlank @Pattern(regexp = "ivory|ebony|brass") String pieceTone,
+        @Pattern(regexp = "walnut|oak|mahogany|forest|midnight|ivory") String siteTheme,
         Map<String, String> customColors
 ) {
 }

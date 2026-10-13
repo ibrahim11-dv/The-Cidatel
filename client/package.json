@@ -10,6 +10,7 @@
     "verify:premoves": "node scripts/verify-premoves.mjs",
     "verify:online-history": "node scripts/verify-online-history.mjs",
     "verify:online-clock": "node scripts/verify-online-clock.mjs",
+    "verify:online-time": "node scripts/verify-online-time-control.mjs",
     "verify:api": "node scripts/verify-api.mjs",
     "verify:local": "node scripts/verify-local.mjs",
     "verify:engine-protocol": "node scripts/verify-engine-protocol.mjs",

@@ -1,5 +1,31 @@
 # The Citadel — implementation checkpoint
 
+## 13 October 2026: custom online clocks
+
+Online matchmaking and private invitations now support custom clocks, using the server’s existing 15-second to three-hour initial-time and 0–180-second increment limits. The setup form validates whole-number values before either request can start, renders non-minute controls clearly while waiting, and restores a custom invitation’s fields when a host returns to the lobby. The HTTP integration suite now proves that a 45+2 invitation reaches the authoritative server clock unchanged.
+
+Commit message: feat(online): support custom time controls
+
+## 13 October 2026: double-attack puzzle category
+
+The study room now exposes “Double attack” alongside the official fork category on its Lichess fork studies. This gives players the common tactical name used in the project brief without inventing a new classification: Lichess defines a fork as a move that attacks two or more opposing pieces. The catalogue verifier now requires that category as well as replaying its positions.
+
+Source: https://lichess.org/training/themes (public-domain puzzle collection; consulted 13 October 2026).
+
+Commit message: feat(puzzles): add double-attack study category
+
+## 13 October 2026: account-synced application themes
+
+Signed-in players now carry their selected full-site theme with their account. The six supported palettes are validated at the API boundary, saved alongside existing appearance preferences, and restored after sign-in; earlier clients that do not send the new field preserve the account’s current choice. Theme selection remains instant, with the picker briefly locked while its save is in flight so a slower response cannot overwrite a newer choice.
+
+Commit message: feat(settings): sync application themes to accounts
+
+## 13 October 2026: premove board markers
+
+A queued online premove now marks its origin and destination directly on the shared board, while the move is still described in the game panel for screen-reader and keyboard users. The markers clear when the premove is cancelled, sent, or the game ends.
+
+Commit message: feat(online): mark queued premoves on the board
+
 ## 13 October 2026: account-backed custom colors
 
 Signed-in players can now save their validated custom color overrides to their account, while the preview remains instant and browser-local until they choose to save. The server stores only the eleven supported CSS tokens and six-digit hex values, returns them with the existing appearance payload, and preserves older accounts with no stored override map. Account initialization applies saved colors before game pages render.

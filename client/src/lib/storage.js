@@ -7,6 +7,7 @@ const KEYS = {
 
 export const DEFAULT_PREFERENCES = {
   boardTheme: 'walnut',
+  siteTheme: 'walnut',
   pieceStyle: 'classic',
   pieceTone: 'ivory',
   customColors: {},

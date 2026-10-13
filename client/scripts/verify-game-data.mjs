@@ -37,7 +37,7 @@ for (const puzzle of licensed) {
   assert.ok(puzzle.themes.length >= 2)
 }
 
-for (const category of ['Pin', 'Skewer', 'Back-rank tactics', 'Endgame']) {
+for (const category of ['Pin', 'Skewer', 'Double attack', 'Back-rank tactics', 'Endgame']) {
   assert.ok(puzzles.some((puzzle) => puzzle.themes.includes(category)), `Missing licensed ${category} study`)
 }
 

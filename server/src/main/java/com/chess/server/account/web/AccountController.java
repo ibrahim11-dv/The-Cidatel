@@ -42,8 +42,10 @@ public class AccountController {
 
     @PutMapping("/appearance")
     public AccountResponse updateAppearance(Authentication authentication, @Valid @RequestBody UpdateAppearanceRequest request) {
-        AppearancePreferences preferences = new AppearancePreferences(request.boardTheme(), request.pieceStyle(), request.pieceTone(), request.customColors());
-        UserAccount account = accountService.updatePreferences(accountId(authentication), preferences);
+        UserAccount current = accountService.get(accountId(authentication));
+        AppearancePreferences preferences = new AppearancePreferences(request.boardTheme(), request.pieceStyle(), request.pieceTone(),
+                request.siteTheme() == null ? current.preferences().siteTheme() : request.siteTheme(), request.customColors());
+        UserAccount account = accountService.updatePreferences(current.id(), preferences);
         return AccountResponse.from(account);
     }
 

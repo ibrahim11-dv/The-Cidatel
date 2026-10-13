@@ -54,6 +54,19 @@ class GameHttpIntegrationTest {
         assertEquals(matched.get("gameId"), call(first, "GET", "/api/games/active", null, 200).get("id"));
     }
 
+    @Test void acceptsCustomInvitationClocksWithinTheAuthoritativeLimits() throws Exception {
+        Player host = register(), guest = register();
+        Map<String, Integer> custom = Map.of("seconds", 45, "increment", 2);
+        JsonNode invitation = call(host, "POST", "/api/games/invitations", custom, 200);
+        assertEquals(45, invitation.get("seconds").asInt());
+        assertEquals(2, invitation.get("increment").asInt());
+        JsonNode game = call(guest, "POST", "/api/games/invitations/" + invitation.get("code").asText() + "/join", null, 200);
+        assertEquals(45_000, game.at("/clocks/blackMillis").asLong());
+        JsonNode moved = call(host, "POST", "/api/games/" + game.get("id").asText() + "/moves",
+                Map.of("commandId", UUID.randomUUID(), "expectedPly", 0, "move", "e2e4"), 200);
+        assertTrue(moved.at("/clocks/whiteMillis").asLong() > 46_000, "the accepted move receives its two-second increment");
+    }
+
     @Test void rematchConsentOverHttpCreatesOneGameWithReversedColors() throws Exception {
         Player first = register(), second = register();
         JsonNode invite = call(first, "POST", "/api/games/invitations", Map.of("seconds", 60, "increment", 1), 200);

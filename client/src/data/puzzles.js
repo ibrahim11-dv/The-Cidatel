@@ -103,13 +103,13 @@ const lichessStudies = [
     note: 'The queen and bishop coordinate to keep the king inside its cage.',
   }),
   lichessPuzzle({
-    id: '00sJ9', title: 'Drawn to the fork', rating: 2671, themes: ['Attraction', 'Fork', 'Sacrifice'],
+    id: '00sJ9', title: 'Drawn to the fork', rating: 2671, themes: ['Attraction', 'Fork', 'Double attack', 'Sacrifice'],
     fen: 'r3r1k1/p4ppp/2p2n2/1p6/3P1qb1/2NQR3/PPB2PP1/R1B3K1 w - - 5 18',
     moves: 'e3g3 e8e1 g1h2 e1c1 a1c1 f4h6 h2g1 h6c1', gameUrl: 'https://lichess.org/gyFeQsOE#35',
     note: 'A forcing capture pulls the king into a tactical fork.',
   }),
   lichessPuzzle({
-    id: '00sJb', title: 'The seventh-rank fork', rating: 2235, themes: ['Fork', 'Middlegame'],
+    id: '00sJb', title: 'The seventh-rank fork', rating: 2235, themes: ['Fork', 'Double attack', 'Middlegame'],
     fen: 'Q1b2r1k/p2np2p/5bp1/q7/5P2/4B3/PPP3PP/2KR1B1R w - - 1 17',
     moves: 'd1d7 a5e1 d7d1 e1e3 c1b1 e3b6', gameUrl: 'https://lichess.org/kiuvTFoE#33',
     note: 'Keep the attack moving while the queen and rook are overloaded.',

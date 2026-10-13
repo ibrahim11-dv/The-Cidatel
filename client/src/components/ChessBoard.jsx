@@ -15,7 +15,7 @@ export function pieceGlyph(piece) {
   return piece ? PIECES[piece.color][piece.type] : ''
 }
 
-export function ChessBoard({ fen, onMove, flipped = false, interactive = true, lastMove = null, label = 'Chessboard', premoveColor = null }) {
+export function ChessBoard({ fen, onMove, flipped = false, interactive = true, lastMove = null, label = 'Chessboard', premoveColor = null, markedSquares = [] }) {
   const { preferences, boardOptions } = useSession()
   const boardRef = useRef(null)
   const previousFen = useRef(fen)
@@ -29,6 +29,7 @@ export function ChessBoard({ fen, onMove, flipped = false, interactive = true, l
   const ranks = flipped ? [1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1]
   const options = selected ? inputGame.moves({ square: selected, verbose: true }) : []
   const targets = new Set(options.map((move) => move.to))
+  const marked = useMemo(() => new Set(markedSquares), [markedSquares])
 
   useLayoutEffect(() => {
     const before = previousFen.current
@@ -106,6 +107,7 @@ export function ChessBoard({ fen, onMove, flipped = false, interactive = true, l
             const isDark = (rank + file.charCodeAt(0)) % 2 === 0
             const isLastMove = lastMove && (lastMove.from === square || lastMove.to === square)
             const isTarget = boardOptions.legalMoves && targets.has(square)
+            const isMarked = marked.has(square)
             const description = piece ? `${piece.color === 'w' ? 'White' : 'Black'} ${NAMES[piece.type]} on ${square}` : `Empty ${square}`
             return (
               <button
@@ -113,7 +115,7 @@ export function ChessBoard({ fen, onMove, flipped = false, interactive = true, l
                 key={square}
                 role="gridcell"
                 data-square={square}
-                className={`square ${isDark ? 'dark' : 'light'} ${selected === square ? 'selected' : ''} ${isLastMove ? 'last-move' : ''} ${isTarget ? 'target' : ''} ${piece?.type === 'k' && piece.color === game.turn() && game.isCheck() ? 'in-check' : ''}`}
+                className={`square ${isDark ? 'dark' : 'light'} ${selected === square ? 'selected' : ''} ${isLastMove ? 'last-move' : ''} ${isTarget ? 'target' : ''} ${isMarked ? 'queued-move' : ''} ${piece?.type === 'k' && piece.color === game.turn() && game.isCheck() ? 'in-check' : ''}`}
                 onClick={() => { if (suppressClick.current) { suppressClick.current = false; return } chooseSquare(square) }}
                 onPointerDown={(event) => {
                   if (!interactive || promotion || piece?.color !== inputGame.turn() || event.button !== 0) return
