@@ -5,8 +5,8 @@ import { useSession } from '../context/SessionContext'
 import { puzzles } from '../data/puzzles'
 import { formatDate, initials, STARTING_FEN } from '../lib/chess'
 import { getGames, getPuzzleProgress, savePuzzleSnapshot } from '../lib/storage'
-import { puzzleApi } from '../lib/api'
-import { gameApi } from '../lib/api'
+import { gameApi, puzzleApi } from '../lib/api'
+import { onlineResultStats } from '../lib/onlineHistory'
 
 const boardThemes = [
   ['walnut', 'Walnut', 'Warm tournament wood'],
@@ -36,8 +36,11 @@ export function ProfilePage() {
   const games = getGames(session.id)
   const [completed, setCompleted] = useState(() => getPuzzleProgress(session.id))
   const [onlineGames, setOnlineGames] = useState([])
-  const wins = games.filter((game) => game.result.startsWith(game.ownerColor === 'w' ? 'White wins' : 'Black wins')).length
-  const draws = games.filter((game) => game.result.startsWith('Draw')).length
+  const localWins = games.filter((game) => game.result.startsWith(game.ownerColor === 'w' ? 'White wins' : 'Black wins')).length
+  const localDraws = games.filter((game) => game.result.startsWith('Draw')).length
+  const onlineTotals = onlineResultStats(onlineGames, session.id)
+  const wins = localWins + onlineTotals.wins
+  const draws = localDraws + onlineTotals.draws
 
   useEffect(() => {
     let active = true

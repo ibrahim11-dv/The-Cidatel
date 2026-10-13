@@ -1,5 +1,19 @@
 # The Citadel — implementation checkpoint
 
+## 13 October 2026: combined scorebook totals
+
+Profile statistics now aggregate finished online games with locally recorded games. Wins are determined from the account’s assigned online color, and draws count from the server result, so the totals no longer disagree with the new online scorebook section. Focused online-history and API checks plus the production client build pass.
+
+Commit message: fix(profile): include online results in scorebook totals
+
+## 13 October 2026: durable online game history
+
+Signed-in players can now retrieve up to fifty of their finished online games from server persistence. The Profile scorebook displays those records with their result, reason, date and ply count; opening one restores the existing read-only online review interface through a protected game link. History queries are restricted to the authenticated player, and completed games are removed from the browser’s active-game key so returning to online play opens the lobby rather than an old result.
+
+The authenticated HTTP integration test proves both participants receive their completed game while an outsider receives no record. Client API checks and the production build pass. Local/bot scorebook records remain browser-local; broader account-level local history is not yet implemented.
+
+Commit message: feat(history): add authenticated online game scorebook
+
 ## 13 October 2026: authoritative profile study totals
 
 The signed-in Profile scorebook now fetches its solved-study total from the account-backed puzzle-progress resource, so a player sees their progress on another browser without first opening the puzzle room. The browser cache remains the fallback when the server cannot be reached, and a successful account response refreshes that cache. Focused account/puzzle-stat checks and the production client build pass.
