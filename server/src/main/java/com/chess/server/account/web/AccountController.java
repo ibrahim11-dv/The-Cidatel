@@ -42,7 +42,7 @@ public class AccountController {
 
     @PutMapping("/appearance")
     public AccountResponse updateAppearance(Authentication authentication, @Valid @RequestBody UpdateAppearanceRequest request) {
-        AppearancePreferences preferences = new AppearancePreferences(request.boardTheme(), request.pieceStyle(), request.pieceTone());
+        AppearancePreferences preferences = new AppearancePreferences(request.boardTheme(), request.pieceStyle(), request.pieceTone(), request.customColors());
         UserAccount account = accountService.updatePreferences(accountId(authentication), preferences);
         return AccountResponse.from(account);
     }

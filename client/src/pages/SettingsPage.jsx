@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChessBoard } from '../components/ChessBoard'
 import { STARTING_FEN } from '../lib/chess'
-import { THEMES, applyTheme, readTheme, CUSTOM_COLORS, readCustomColors, saveCustomColors, themeColors } from '../lib/themes'
+import { THEMES, applyTheme, readTheme, CUSTOM_COLORS, normalizeColors, readCustomColors, saveCustomColors, themeColors } from '../lib/themes'
 import { useSession } from '../context/SessionContext'
 import { DEFAULT_BOARD_OPTIONS } from '../lib/boardOptions'
 import { unlockSound, playSound } from '../lib/sound'
@@ -19,17 +19,38 @@ export function SettingsPage() {
     finally { setSavingPieces(false) }
   }
   const [theme, setTheme] = useState(readTheme)
-  const [custom, setCustom] = useState(readCustomColors)
+  const [custom, setCustom] = useState(() => session?.preferences?.customColors || readCustomColors())
+  const [colorsDirty, setColorsDirty] = useState(false)
+  const [savingColors, setSavingColors] = useState(false)
+  const accountColorsKey = JSON.stringify(preferences.customColors || {})
+  useEffect(() => {
+    if (!session) return
+    const saved = preferences.customColors || {}
+    setCustom(saved)
+    setColorsDirty(false)
+  }, [session?.id, accountColorsKey])
   const colors = themeColors(theme, custom)
   const contrastIssues = colorContrastIssues(colors)
   function customize(value) {
-    setCustom(value)
-    applyTheme(theme, value)
-    setNotice(saveCustomColors(value) ? 'Custom colors saved on this browser.' : 'Colors applied but browser storage is unavailable.')
+    const next = normalizeColors(value)
+    setCustom(next)
+    applyTheme(theme, next)
+    const saved = saveCustomColors(next)
+    setColorsDirty(Boolean(session))
+    setNotice(session ? 'Custom colors applied. Save them to your account when ready.' : saved ? 'Custom colors saved on this browser.' : 'Colors applied but browser storage is unavailable.')
+  }
+  async function saveAccountColors() {
+    setSavingColors(true)
+    try {
+      await setPreferences({ customColors: custom })
+      setColorsDirty(false)
+      setNotice('Custom colors saved to your account.')
+    } catch (error) { setNotice(`${error.message} Your preview remains available on this browser.`) }
+    finally { setSavingColors(false) }
   }
   const [notice, setNotice] = useState('Saved on this browser, including for guests.')
   function choose(id) {
-    applyTheme(id)
+    applyTheme(id, custom)
     setTheme(id)
     try { localStorage.setItem('citadel:theme', id); setNotice('Appearance saved on this browser.') }
     catch { setNotice('Appearance applied. Browser storage is unavailable, so it cannot be saved.') }
@@ -50,6 +71,7 @@ export function SettingsPage() {
       <div role="status">{contrastIssues.length ? <><p>Some text may be hard to read. Aim for at least 4.5:1 contrast for normal text.</p><ul>{contrastIssues.map(({ label, ratio }) => <li key={label}>{label}: {ratio.toFixed(2)}:1</li>)}</ul></> : <p>Main text and button colors meet the 4.5:1 contrast target.</p>}</div>
       <p className="small-note">This checks solid text colors, not every board marker, texture or interaction state.</p>
       <button className="quiet-button" onClick={() => customize({})}>Reset custom colors</button>
+      {session && <button className="primary-button" disabled={!colorsDirty || savingColors} onClick={() => void saveAccountColors()}>{savingColors ? 'Saving colors…' : 'Save custom colors to account'}</button>}
     </section>
     <section className="board-settings" aria-label="Board preferences"><h2>At the board</h2>
       <label>Piece rendering<select value={preferences.pieceStyle} disabled={savingPieces} onChange={(event) => choosePieces({ pieceStyle: event.target.value })}><option value="classic">Classic outline</option><option value="modern">Fine outline</option><option value="manuscript">Bold outline</option></select></label>

@@ -167,7 +167,7 @@ function PrivateTable({ account }) {
     <header className="page-heading"><p className="eyebrow">The online room</p><h1>Play online</h1><p>{game ? connected ? 'Connected · synchronized with the server' : 'Reconnecting…' : 'Find an opponent or invite a friend. Private-game hosts play White.'}</p></header>
     {notice && <p role="alert">{notice}</p>}
     {checkingActive && <p role="status">Checking for an active game…</p>}
-    {game ? <div className="game-layout"><div>
+    {game ? <div className="game-layout online-game-layout"><div className="online-board-column">
       {clock(flipped ? 'white' : 'black')}
       {reviewing && <p role="status">Reviewing move {displayed.ply} of {history.length}.{!game.result && ' The live clocks continue.'}</p>}
       <ChessBoard fen={reviewing ? displayed.fen : game.fen} flipped={flipped} lastMove={displayed.lastMove} interactive={!reviewing && connected && !busy && !game.result} premoveColor={white ? 'w' : 'b'} onMove={playOnlineMove} />

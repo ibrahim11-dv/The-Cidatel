@@ -66,11 +66,12 @@ class AuthApiIntegrationTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"boardTheme":"forest","pieceStyle":"modern","pieceTone":"brass"}
+                                {"boardTheme":"forest","pieceStyle":"modern","pieceTone":"brass","customColors":{"--paper":"#112233","--legal":"#445566"}}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.preferences.boardTheme").value("forest"))
-                .andExpect(jsonPath("$.preferences.pieceStyle").value("modern"));
+                .andExpect(jsonPath("$.preferences.pieceStyle").value("modern"))
+                .andExpect(jsonPath("$.preferences.customColors['--paper']").value("#112233"));
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

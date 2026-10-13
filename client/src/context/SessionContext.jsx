@@ -9,6 +9,7 @@ import {
 } from '../lib/storage'
 import { accountApi, authApi } from '../lib/api'
 import { readBoardOptions, normalizeBoardOptions, saveBoardOptions } from '../lib/boardOptions'
+import { applyTheme, readTheme, saveCustomColors } from '../lib/themes'
 
 const SessionContext = createContext(null)
 
@@ -16,6 +17,14 @@ export function SessionProvider({ children }) {
   const [session, setSession] = useState(() => getSession())
   const [boardOptions, setBoardOptions] = useState(readBoardOptions)
   const [guestPreferences, setGuestPreferences] = useState(getGuestPreferences)
+  const accountColorsKey = JSON.stringify(session?.preferences?.customColors || {})
+
+  useEffect(() => {
+    if (!session) return
+    const colors = session.preferences?.customColors || {}
+    saveCustomColors(colors)
+    applyTheme(readTheme(), colors)
+  }, [session?.id, accountColorsKey])
 
   useEffect(() => {
     if (!session) return undefined

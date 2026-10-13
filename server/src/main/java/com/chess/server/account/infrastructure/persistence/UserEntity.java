@@ -8,6 +8,8 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 
 @Entity
@@ -35,6 +37,10 @@ public class UserEntity {
     @Column(nullable = false, length = 20)
     private String pieceTone;
 
+    // Nullable keeps existing installed accounts compatible with this additive schema update.
+    @Column(length = 512)
+    private String customColors;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -49,6 +55,7 @@ public class UserEntity {
         boardTheme = account.preferences().boardTheme();
         pieceStyle = account.preferences().pieceStyle();
         pieceTone = account.preferences().pieceTone();
+        customColors = encodeColors(account.preferences().customColors());
         createdAt = account.createdAt();
     }
 
@@ -62,8 +69,26 @@ public class UserEntity {
                 username,
                 email,
                 passwordHash,
-                new AppearancePreferences(boardTheme, pieceStyle, pieceTone),
+                new AppearancePreferences(boardTheme, pieceStyle, pieceTone, decodeColors(customColors)),
                 createdAt
         );
+    }
+
+    private static String encodeColors(Map<String, String> colors) {
+        return new TreeMap<>(colors).entrySet().stream()
+                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                .reduce((left, right) -> left + ";" + right)
+                .orElse("");
+    }
+
+    private static Map<String, String> decodeColors(String stored) {
+        if (stored == null || stored.isBlank()) return Map.of();
+        Map<String, String> colors = new TreeMap<>();
+        for (String entry : stored.split(";")) {
+            String[] pair = entry.split("=", 2);
+            if (pair.length != 2) throw new IllegalStateException("Stored appearance colors are invalid.");
+            colors.put(pair[0], pair[1]);
+        }
+        return colors;
     }
 }

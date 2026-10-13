@@ -1,5 +1,25 @@
 # The Citadel — implementation checkpoint
 
+## 13 October 2026: account-backed custom colors
+
+Signed-in players can now save their validated custom color overrides to their account, while the preview remains instant and browser-local until they choose to save. The server stores only the eleven supported CSS tokens and six-digit hex values, returns them with the existing appearance payload, and preserves older accounts with no stored override map. Account initialization applies saved colors before game pages render.
+
+Commit message: feat(settings): save custom colors to accounts
+
+## 13 October 2026: responsive online table panel
+
+The live online table now has its own board-column, player-clock, action-panel and premove-cancel styling rather than relying on class names intended for local play. The online board remains central at desktop widths, clocks retain their alignment, and the action panel stacks beneath it on narrow screens.
+
+Commit message: fix(online): style the live game table responsively
+
+## 13 October 2026: broader licensed puzzle catalogue
+
+The puzzle room now includes four more Lichess Open Database records: pin, skewer, back-rank mate, and promotion endgame studies. Each record retains its Lichess ID, source-game link, CC0 attribution, rating, supplied FEN and full UCI solution line converted through the existing chess library. The catalogue validator now requires the added licensed themes as well as replaying every line.
+
+Source: https://database.lichess.org/#puzzles (CC0; consulted 13 October 2026).
+
+Commit message: feat(puzzles): add licensed tactical themes
+
 ## 13 October 2026: automatic online draw-rule coverage
 
 The server already adjudicated the mandatory fivefold repetition and seventy-five-move rules after every accepted online move. New session-level tests now prove that both conditions terminate the authoritative game and stop its clocks, instead of relying on lower-level rule-engine checks alone.

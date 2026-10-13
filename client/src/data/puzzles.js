@@ -17,6 +17,15 @@ function lichessPuzzle({ id, fen, moves, rating, themes, gameUrl, title, note })
   }
 }
 
+function lichessStudy({ id, fen, moves, rating, themes, gameUrl, title, note }) {
+  const chess = new Chess(fen)
+  return {
+    id: `lichess-${id}`, title, theme: themes[0], themes, side: chess.turn(), fen: chess.fen(),
+    solution: moves.map((move) => chess.move(uciMove(move)).san), rating,
+    note, source: { provider: 'Lichess Open Database', license: 'CC0', puzzleId: id, gameUrl },
+  }
+}
+
 const citadelStudies = [
   {
     id: 'quiet-crown',
@@ -110,6 +119,30 @@ const lichessStudies = [
     fen: '1k1r4/pp3pp1/2p1p3/4b3/P3n1P1/8/KPP2PN1/3rBR1R b - - 2 31',
     moves: 'b8c7 e1a5 b7b6 f1d1', gameUrl: 'https://lichess.org/vsfFkG0s/black#62',
     note: 'Open the line at the moment the defender cannot keep every piece covered.',
+  }),
+  lichessStudy({
+    id: 'QgvN2', title: 'The pinned queen', rating: 1303, themes: ['Pin', 'Endgame'],
+    fen: '4rR2/6k1/6pp/4q1b1/6P1/P1Q5/KP5P/8 w - - 1 1',
+    moves: ['f8e8', 'e5c3', 'b2c3'], gameUrl: 'https://lichess.org/0YFrmgI6',
+    note: 'Use the pin to win the defender when the king has no safe recapture.',
+  }),
+  lichessStudy({
+    id: '8XMVq', title: 'Rooks on the seventh', rating: 1608, themes: ['Skewer', 'Endgame'],
+    fen: 'R7/P4k2/8/4p2p/r7/6K1/5P2/8 w - - 1 1',
+    moves: ['a8h8', 'a4a7', 'h8h7', 'f7f6', 'h7a7'], gameUrl: 'https://lichess.org/wd0OX9xu',
+    note: 'A checking rook attack forces the king away before the loose rook falls.',
+  }),
+  lichessStudy({
+    id: 'TuFQi', title: 'The crowded back rank', rating: 1340, themes: ['Back-rank tactics', 'Mate in three'],
+    fen: '4rbk1/p1p3pp/4r3/2Pq4/8/8/P4QPP/4RRK1 w - - 0 1',
+    moves: ['f2f7', 'g8h8', 'f7f8', 'e8f8', 'f1f8'], gameUrl: 'https://lichess.org/NAIyEHCA',
+    note: 'Deflect the back-rank guard before delivering the final rook check.',
+  }),
+  lichessStudy({
+    id: 'GzQ2K', title: 'The passed pawn', rating: 1463, themes: ['Endgame', 'Promotion'],
+    fen: '8/5ppk/2QP3p/8/8/p4P2/q1P2P2/5K2 b - - 0 1',
+    moves: ['a2b1', 'f1g2', 'a3a2', 'c6e4', 'g7g6', 'e4d5', 'a2a1q'], gameUrl: 'https://lichess.org/aaBIEICB',
+    note: 'The passed pawn’s route to promotion matters more than the material count.',
   }),
 ]
 

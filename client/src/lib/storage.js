@@ -9,6 +9,7 @@ export const DEFAULT_PREFERENCES = {
   boardTheme: 'walnut',
   pieceStyle: 'classic',
   pieceTone: 'ivory',
+  customColors: {},
 }
 
 export function getGuestPreferences() {

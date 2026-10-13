@@ -62,8 +62,8 @@ export const accountApi = {
   changePassword({ currentPassword, newPassword }) {
     return request('/account/me/password', { method: 'PUT', body: { currentPassword, newPassword }, authenticated: true })
   },
-  updateAppearance({ boardTheme, pieceStyle, pieceTone }) {
-    return request('/account/me/appearance', { method: 'PUT', body: { boardTheme, pieceStyle, pieceTone }, authenticated: true })
+  updateAppearance({ boardTheme, pieceStyle, pieceTone, customColors }) {
+    return request('/account/me/appearance', { method: 'PUT', body: { boardTheme, pieceStyle, pieceTone, customColors }, authenticated: true })
   },
 }
 

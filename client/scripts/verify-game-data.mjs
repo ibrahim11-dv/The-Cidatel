@@ -28,13 +28,17 @@ for (const puzzle of puzzles) {
 }
 
 const licensed = puzzles.filter((puzzle) => puzzle.source)
-assert.equal(licensed.length, 4)
+assert.equal(licensed.length, 8)
 for (const puzzle of licensed) {
   assert.equal(puzzle.source.provider, 'Lichess Open Database')
   assert.equal(puzzle.source.license, 'CC0')
   assert.match(puzzle.source.gameUrl, /^https:\/\/lichess\.org\//)
   assert.ok(Number.isSafeInteger(puzzle.rating) && puzzle.rating > 0)
   assert.ok(puzzle.themes.length >= 2)
+}
+
+for (const category of ['Pin', 'Skewer', 'Back-rank tactics', 'Endgame']) {
+  assert.ok(puzzles.some((puzzle) => puzzle.themes.includes(category)), `Missing licensed ${category} study`)
 }
 
 console.log(`Validated ${puzzles.length} puzzle positions, ${licensed.length} CC0 Lichess records and ${alternatives} alternative mating answers; rejected non-mates in mate-in-one studies.`)
