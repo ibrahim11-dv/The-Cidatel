@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { emptyPuzzleStats, updatePuzzleStats, loadPuzzleStats, savePuzzleStats } from '../src/lib/puzzleStats.js'
+import { emptyPuzzleStats, updatePuzzleStats, loadPuzzleStats, puzzleSuccessRate, savePuzzleStats } from '../src/lib/puzzleStats.js'
 let stats = emptyPuzzleStats()
 const event = (id, type) => { stats = updatePuzzleStats(stats, id, type) }
 event('one', 'start'); event('one', 'solve'); event('one', 'solve')
@@ -15,6 +15,8 @@ assert.equal(stats.solved, 4)
 event('six', 'solve'); event('seven', 'start'); event('eight', 'solve')
 assert.equal(stats.streak, 1, 'Abandoning an attempt breaks a streak')
 assert.equal(stats.attempted, 8)
+assert.equal(puzzleSuccessRate(stats), 75)
+assert.equal(puzzleSuccessRate(emptyPuzzleStats()), 0)
 const values = new Map()
 global.window = { localStorage: { getItem: (key) => values.get(key), setItem: (key, value) => values.set(key, value) } }
 savePuzzleStats('guest', stats)

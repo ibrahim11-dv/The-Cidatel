@@ -11,14 +11,20 @@ import { OnlineClock } from '../components/OnlineClock'
 import { onlineRecord, onlineReview } from '../lib/onlineRecord'
 import { premoveText } from '../lib/premove'
 import { formatOnlineTimeControl, selectedOnlineTimeControl, selectionForOnlineTimeControl } from '../lib/onlineTimeControl'
+import { onlineSoundEvent } from '../lib/onlineSound'
+import { playSound, unlockSound } from '../lib/sound'
+import { invitationCodeFromSearch, shouldAutoJoinInvitation } from '../lib/onlineInvitation'
+import { signInDestination } from '../lib/authRedirect'
 
 export function OnlinePage() {
-  const { session } = useSession()
-  return session ? <PrivateTable key={session.id} account={session} /> : <section className="online-page"><h1>Play online</h1><p>Sign in to create or join a private game.</p><Link className="primary-button" to="/login">Sign in</Link></section>
+  const { session, boardOptions } = useSession()
+  return session ? <PrivateTable key={session.id} account={session} soundEnabled={boardOptions.sound} /> : <section className="online-page"><h1>Play online</h1><p>Sign in to create or join a private game.</p><Link className="primary-button" to={signInDestination({ pathname: '/online' })}>Sign in</Link></section>
 }
 
-function PrivateTable({ account }) {
+function PrivateTable({ account, soundEnabled }) {
   const key = `citadel-online-${account.id}`
+  const invitationFromLink = useRef(invitationCodeFromSearch(location.search))
+  const invitationJoinAttempted = useRef(false)
   const [id, setId] = useState(() => new URLSearchParams(location.search).get('game') || localStorage.getItem(key) || '')
   const [game, setGame] = useState(null)
   const [players, setPlayers] = useState(null)
@@ -26,7 +32,7 @@ function PrivateTable({ account }) {
   const [room, setRoom] = useState(null)
   const [searching, setSearching] = useState(false)
   const queueRequest = useRef(null)
-  const [code, setCode] = useState(() => new URLSearchParams(location.search).get('invite') || '')
+  const [code, setCode] = useState(() => invitationFromLink.current)
   const [control, setControl] = useState('5+3')
   const [customSeconds, setCustomSeconds] = useState('300')
   const [customIncrement, setCustomIncrement] = useState('0')
@@ -36,10 +42,12 @@ function PrivateTable({ account }) {
   const [notice, setNotice] = useState('')
   const [confirm, setConfirm] = useState(false)
   const [flip, setFlip] = useState(false)
+  const [copyMessage, setCopyMessage] = useState('')
   const [intendedMove, setIntendedMove] = useState('')
   const [premove, setPremove] = useState(null)
   const [review, setReview] = useState(null)
   const timeControl = selectedOnlineTimeControl(control, customSeconds, customIncrement)
+  const invitationLink = room ? `${location.origin}${location.pathname}?invite=${room.code}` : ''
   const applyTimeControl = (seconds, increment) => {
     const choice = selectionForOnlineTimeControl(seconds, increment, TIME_CONTROLS.filter(([value]) => value !== '0+0'))
     setControl(choice.selection)
@@ -47,9 +55,11 @@ function PrivateTable({ account }) {
     setCustomIncrement(choice.customIncrement)
   }
   useEffect(() => { setIntendedMove('') }, [game?.fen])
+  useEffect(() => { setCopyMessage('') }, [room?.code])
   const version = useRef(0)
   const pending = useRef(false)
   const queuedPremove = useRef(null)
+  const previousSoundState = useRef(null)
   const accept = (state) => {
     setSearching(false)
     setGame({ ...state, receivedAt: performance.now() })
@@ -125,18 +135,45 @@ function PrivateTable({ account }) {
   }, [id, room?.code, searching, timeControl?.seconds, timeControl?.increment, checkingActive])
   async function action(work) {
     if (pending.current || checkingActive) return
+    if (soundEnabled) unlockSound()
     pending.current = true
     setBusy(true); setNotice(''); version.current++
     try { await work() } catch (error) { setNotice(error.message); setConnected(false) }
     finally { version.current++; pending.current = false; setBusy(false) }
   }
+  useEffect(() => {
+    const invitation = invitationFromLink.current
+    if (!shouldAutoJoinInvitation({
+      checkingActive,
+      code: invitation,
+      gameId: id,
+      invitation: room,
+      searching,
+      attempted: invitationJoinAttempted.current,
+    })) return
+    invitationJoinAttempted.current = true
+    void action(async () => accept(await gameApi.join(invitation)))
+  }, [checkingActive, id, room?.code, searching])
   async function rematchAction(cancel = false) {
     const offer = await (cancel ? gameApi.cancelRematch(id) : gameApi.requestRematch(id))
     if (offer.gameId) { accept(await gameApi.state(offer.gameId)); setRematch(null); setFlip(false) }
     else setRematch(offer)
   }
+  async function copyInvitationLink() {
+    try {
+      await navigator.clipboard.writeText(invitationLink)
+      setCopyMessage('Invitation link copied.')
+    } catch {
+      setCopyMessage('Select the invitation link and copy it from your browser.')
+    }
+  }
   const record = useMemo(() => onlineRecord(game?.moves, game?.result, players), [game?.moves?.join(','), game?.result?.score, players])
   const history = record.history
+  useEffect(() => {
+    const event = onlineSoundEvent(previousSoundState.current, game, history)
+    previousSoundState.current = event.snapshot
+    if (soundEnabled && event.sound) playSound(event.sound)
+  }, [game?.id, game?.result?.score, game?.result?.reason, history.length, soundEnabled])
   const reviewing = review?.id === game?.id && review != null
   const displayed = onlineReview(record, reviewing ? review.ply : null)
   const selectPly = (ply) => setReview({ id: game.id, ply })
@@ -161,6 +198,7 @@ function PrivateTable({ account }) {
     action(async () => accept(await gameApi.move(id, { commandId: crypto.randomUUID(), expectedPly: game.moves.length, move: `${move.from}${move.to}${move.promotion || ''}` })))
   }, [premove, game?.fen, game?.moves?.length, game?.result, myTurn, connected, busy, id])
   function playOnlineMove(move) {
+    if (soundEnabled) unlockSound()
     if (!myTurn) {
       queuedPremove.current = move
       setPremove(move)
@@ -180,7 +218,7 @@ function PrivateTable({ account }) {
     {game ? <div className="game-layout online-game-layout"><div className="online-board-column">
       {clock(flipped ? 'white' : 'black')}
       {reviewing && <p role="status">Reviewing move {displayed.ply} of {history.length}.{!game.result && ' The live clocks continue.'}</p>}
-      <ChessBoard fen={reviewing ? displayed.fen : game.fen} flipped={flipped} lastMove={displayed.lastMove} interactive={!reviewing && connected && !busy && !game.result} premoveColor={white ? 'w' : 'b'} markedSquares={premove ? [premove.from, premove.to] : []} onMove={playOnlineMove} />
+      <ChessBoard fen={reviewing ? displayed.fen : game.fen} flipped={flipped} lastMove={displayed.lastMove} interactive={!reviewing && connected && !busy && !game.result} premoveColor={white ? 'w' : 'b'} markedSquares={premove ? [premove.from, premove.to] : []} arrows={premove ? [premove] : []} onMove={playOnlineMove} />
       {clock(flipped ? 'black' : 'white')}<CapturedPieces history={displayed.history} />
     </div><aside className="game-panel"><h2>{game.result ? `${game.result.score} · ${game.result.reason}` : myTurn ? 'Your move' : 'Opponent to move'}</h2>
       <button className="quiet-button" onClick={() => setFlip(!flip)}>Flip board</button>
@@ -213,8 +251,9 @@ function PrivateTable({ account }) {
         setSearching(false)
         if (state.gameId) setId(state.gameId)
       })}>Cancel matchmaking</button></article> : <article className="room-card"><h2>Invite a friend</h2>{room ? <>
-        <p>Waiting for your opponent. Share this link:</p><input aria-label="Invitation link" readOnly value={`${location.origin}${location.pathname}?invite=${room.code}`} onFocus={(event) => event.target.select()} />
-        <button className="quiet-button" disabled={busy} onClick={() => action(async () => { await gameApi.cancel(room.code); setRoom(null) })}>Cancel invitation</button>
+        <p>Waiting for your opponent. Share this link:</p><input aria-label="Invitation link" readOnly value={invitationLink} onFocus={(event) => event.target.select()} />
+        <div className="invitation-actions"><button className="quiet-button" type="button" onClick={() => void copyInvitationLink()}>Copy invitation link</button><button className="quiet-button" disabled={busy} onClick={() => action(async () => { await gameApi.cancel(room.code); setRoom(null) })}>Cancel invitation</button></div>
+        {copyMessage && <p className="invitation-status" role="status">{copyMessage}</p>}
       </> : <><label htmlFor="online-time">Time control</label><select id="online-time" value={control} onChange={(event) => setControl(event.target.value)}>{TIME_CONTROLS.filter(([value]) => value !== '0+0').map(([value, label]) => <option key={value} value={value}>{label}</option>)}<option value="custom">Custom…</option></select>
         {control === 'custom' && <div className="custom-time-controls"><label>Initial time (seconds)<input type="number" min="15" max="10800" step="1" value={customSeconds} onChange={(event) => setCustomSeconds(event.target.value)} /></label><label>Increment (seconds)<input type="number" min="0" max="180" step="1" value={customIncrement} onChange={(event) => setCustomIncrement(event.target.value)} /></label><p className="small-note">Choose 15 seconds to 3 hours, with up to 180 seconds added after each move.</p></div>}
         {!timeControl && <p role="alert">Enter a whole-number clock within the stated limits.</p>}

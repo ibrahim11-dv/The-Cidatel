@@ -1,5 +1,9 @@
 export const emptyPuzzleStats = () => ({ attempted: 0, solved: 0, unassisted: 0, streak: 0, best: 0, active: null })
 
+export function puzzleSuccessRate(stats) {
+  return stats?.attempted ? Math.round(stats.solved / stats.attempted * 100) : 0
+}
+
 export function updatePuzzleStats(previous, id, event) {
   const stats = { ...previous, active: previous.active ? { ...previous.active } : null }
   if (stats.active?.id !== id) {

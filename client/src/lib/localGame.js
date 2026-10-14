@@ -54,6 +54,7 @@ export class LocalGame {
     this.started = false
     this.undoClocks = []
     this.result = getTerminalState(this.chess) || (pgn ? PGN_RESULTS[this.chess.getHeaders().Result] || null : null)
+    this.finishedAt = this.result ? now : null
   }
 
   clocks(now = Date.now()) {
@@ -88,7 +89,8 @@ export class LocalGame {
     if (this.timed) this.remaining[side] += this.increment
     this.started = true
     this.anchor = now
-    this.result = getTerminalState(this.chess)
+    const terminal = getTerminalState(this.chess)
+    if (terminal) this.finish(terminal, now)
     return played
   }
 
@@ -96,6 +98,7 @@ export class LocalGame {
     if (this.result) return
     this.remaining = this.clocks(now)
     this.result = result
+    this.finishedAt = now
   }
 
   claimDraw(intendedMove = null, now = Date.now()) {
@@ -128,7 +131,7 @@ export class LocalGame {
   snapshot() {
     return { version: 1, id: this.id, control: this.control, initialFen: this.initialFen,
       moves: this.chess.history(), remaining: this.remaining, anchor: this.anchor,
-      started: this.started, result: this.result }
+      started: this.started, result: this.result, finishedAt: this.finishedAt }
   }
 
   static restore(data, now = Date.now()) {
@@ -143,6 +146,9 @@ export class LocalGame {
     model.anchor = data.anchor
     model.started = Boolean(data.started)
     model.result = getTerminalState(model.chess) || (typeof data.result === 'string' ? data.result : null)
+    model.finishedAt = model.result
+      ? (Number.isFinite(data.finishedAt) && data.finishedAt >= 0 ? data.finishedAt : now)
+      : null
     model.tick(now)
     return model
   }

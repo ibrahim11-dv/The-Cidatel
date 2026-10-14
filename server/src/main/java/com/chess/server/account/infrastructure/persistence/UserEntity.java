@@ -45,6 +45,22 @@ public class UserEntity {
     @Column(length = 512)
     private String customColors;
 
+    // Nullable keeps existing installed accounts compatible with this additive schema update.
+    private Boolean boardCoordinates;
+
+    // Nullable keeps existing installed accounts compatible with this additive schema update.
+    private Boolean legalMoves;
+
+    // Nullable keeps existing installed accounts compatible with this additive schema update.
+    private Boolean sound;
+
+    // Nullable keeps existing installed accounts compatible with this additive schema update.
+    private Integer animationMs;
+
+    // Nullable keeps existing installed accounts compatible with this additive schema update.
+    @Column(length = 10)
+    private String orientation;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -61,6 +77,11 @@ public class UserEntity {
         pieceTone = account.preferences().pieceTone();
         siteTheme = account.preferences().siteTheme();
         customColors = encodeColors(account.preferences().customColors());
+        boardCoordinates = account.preferences().coordinates();
+        legalMoves = account.preferences().legalMoves();
+        sound = account.preferences().sound();
+        animationMs = account.preferences().animationMs();
+        orientation = account.preferences().orientation();
         createdAt = account.createdAt();
     }
 
@@ -75,7 +96,10 @@ public class UserEntity {
                 email,
                 passwordHash,
                 new AppearancePreferences(boardTheme, pieceStyle, pieceTone,
-                        siteTheme == null || siteTheme.isBlank() ? "walnut" : siteTheme, decodeColors(customColors)),
+                        siteTheme == null || siteTheme.isBlank() ? "walnut" : siteTheme, decodeColors(customColors),
+                        boardCoordinates == null || boardCoordinates, legalMoves == null || legalMoves,
+                        sound != null && sound, animationMs == null ? 160 : animationMs,
+                        orientation == null || orientation.isBlank() ? "white" : orientation),
                 createdAt
         );
     }

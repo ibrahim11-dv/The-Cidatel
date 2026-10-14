@@ -3,7 +3,8 @@ package com.chess.server.account.domain;
 import java.util.Map;
 import java.util.Set;
 
-public record AppearancePreferences(String boardTheme, String pieceStyle, String pieceTone, String siteTheme, Map<String, String> customColors) {
+public record AppearancePreferences(String boardTheme, String pieceStyle, String pieceTone, String siteTheme, Map<String, String> customColors,
+                                    boolean coordinates, boolean legalMoves, boolean sound, int animationMs, String orientation) {
 
     private static final Set<String> BOARD_THEMES = Set.of("walnut", "forest", "midnight");
     private static final Set<String> SITE_THEMES = Set.of("walnut", "oak", "mahogany", "forest", "midnight", "ivory");
@@ -23,9 +24,12 @@ public record AppearancePreferences(String boardTheme, String pieceStyle, String
                 .anyMatch(entry -> !COLOR_TOKENS.contains(entry.getKey()) || !entry.getValue().matches("#[0-9a-fA-F]{6}"))) {
             throw new IllegalArgumentException("One or more custom colors are not supported.");
         }
+        if (!Set.of(0, 100, 160, 240).contains(animationMs) || !Set.of("white", "black").contains(orientation)) {
+            throw new IllegalArgumentException("One or more board settings are not supported.");
+        }
     }
 
     public static AppearancePreferences defaults() {
-        return new AppearancePreferences("walnut", "classic", "ivory", "walnut", Map.of());
+        return new AppearancePreferences("walnut", "classic", "ivory", "walnut", Map.of(), true, true, false, 160, "white");
     }
 }

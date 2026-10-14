@@ -44,7 +44,13 @@ public class AccountController {
     public AccountResponse updateAppearance(Authentication authentication, @Valid @RequestBody UpdateAppearanceRequest request) {
         UserAccount current = accountService.get(accountId(authentication));
         AppearancePreferences preferences = new AppearancePreferences(request.boardTheme(), request.pieceStyle(), request.pieceTone(),
-                request.siteTheme() == null ? current.preferences().siteTheme() : request.siteTheme(), request.customColors());
+                request.siteTheme() == null ? current.preferences().siteTheme() : request.siteTheme(),
+                request.customColors() == null ? current.preferences().customColors() : request.customColors(),
+                request.coordinates() == null ? current.preferences().coordinates() : request.coordinates(),
+                request.legalMoves() == null ? current.preferences().legalMoves() : request.legalMoves(),
+                request.sound() == null ? current.preferences().sound() : request.sound(),
+                request.animationMs() == null ? current.preferences().animationMs() : request.animationMs(),
+                request.orientation() == null ? current.preferences().orientation() : request.orientation());
         UserAccount account = accountService.updatePreferences(current.id(), preferences);
         return AccountResponse.from(account);
     }

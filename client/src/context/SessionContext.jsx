@@ -13,12 +13,23 @@ import { applyTheme, readTheme, saveCustomColors } from '../lib/themes'
 
 const SessionContext = createContext(null)
 
+function hasAccountBoardOptions(preferences) {
+  return ['coordinates', 'legalMoves', 'sound', 'animationMs', 'orientation'].every((key) => preferences && key in preferences)
+}
+
 export function SessionProvider({ children }) {
   const [session, setSession] = useState(() => getSession())
   const [boardOptions, setBoardOptions] = useState(readBoardOptions)
   const [guestPreferences, setGuestPreferences] = useState(getGuestPreferences)
   const accountColorsKey = JSON.stringify(session?.preferences?.customColors || {})
   const accountTheme = session?.preferences?.siteTheme
+
+  useEffect(() => {
+    if (!session || !hasAccountBoardOptions(session.preferences)) return
+    const next = normalizeBoardOptions(session.preferences)
+    setBoardOptions(next)
+    saveBoardOptions(next)
+  }, [session?.id, session?.preferences?.coordinates, session?.preferences?.legalMoves, session?.preferences?.sound, session?.preferences?.animationMs, session?.preferences?.orientation])
 
   useEffect(() => {
     if (!session) return
@@ -32,8 +43,13 @@ export function SessionProvider({ children }) {
 
     let active = true
     accountApi.me()
-      .then((account) => {
-        if (active) setSession(updateSavedSession(account))
+      .then(async (account) => {
+        // Older cached sessions did not carry board controls. Bring their existing
+        // browser settings into the account instead of silently replacing them.
+        const resolved = hasAccountBoardOptions(session.preferences)
+          ? account
+          : await accountApi.updateAppearance({ ...account.preferences, ...boardOptions })
+        if (active) setSession(updateSavedSession(resolved))
       })
       .catch((error) => {
         if (active && error.status === 401) {
@@ -50,10 +66,14 @@ export function SessionProvider({ children }) {
   const value = {
     session,
     boardOptions,
-    updateBoardOptions(patch) {
+    async updateBoardOptions(patch) {
       const next = normalizeBoardOptions({ ...boardOptions, ...patch })
       setBoardOptions(next)
-      return saveBoardOptions(next)
+      const saved = saveBoardOptions(next)
+      if (!session) return saved
+      const account = await accountApi.updateAppearance({ ...session.preferences, ...next })
+      setSession(updateSavedSession(account))
+      return true
     },
     preferences: session?.preferences || guestPreferences,
     async register(details) {

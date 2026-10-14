@@ -131,6 +131,11 @@ export function GamePage({ mode }) {
     refresh()
   }
 
+  function chooseDifficulty(id) {
+    if (id === difficultyId) return
+    reset({}, () => setDifficultyId(id))
+  }
+
   async function showHint() {
     if (outcome || thinking || hinting || game.turn() !== humanColor || !hintsAllowed) return
     const generation = ++hintGeneration.current
@@ -186,7 +191,7 @@ export function GamePage({ mode }) {
   useEffect(() => {
     if (!outcome || savedRef.current === current) return
     saveGame({ id: current.id, ownerId: session?.id || 'guest', mode,
-      createdAt: new Date().toISOString(), result: outcome, ownerColor: mode === 'bot' ? humanColor : 'w',
+      createdAt: new Date(current.finishedAt || Date.now()).toISOString(), result: outcome, ownerColor: mode === 'bot' ? humanColor : 'w',
       initialFen: current.initialFen, moves: history, finalFen: fen })
     savedRef.current = current
   }, [outcome, current, session, mode, humanColor, history, fen])
@@ -204,15 +209,18 @@ export function GamePage({ mode }) {
       <div className="game-settings">
         <label>Time control<select value={current.control} onChange={(event) => reset({ control: event.target.value })}>{TIME_CONTROLS.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
         {mode === 'local' && <label>Board view<select value={flipped ? 'b' : 'w'} onChange={(event) => setFlipped(event.target.value === 'b')}><option value="w">White at bottom</option><option value="b">Black at bottom</option></select></label>}
-        {mode === 'bot' && <><label>Your pieces<select value={colorChoice} onChange={(event) => { const choice = event.target.value; reset({}, () => { const color = choice === 'random' ? (crypto.getRandomValues(new Uint8Array(1))[0] % 2 ? 'w' : 'b') : choice; setColorChoice(choice); setHumanColor(color); setFlipped(color === 'b') }) }}><option value="w">White</option><option value="b">Black</option><option value="random">Random</option></select></label>
-          <label>Difficulty<select value={difficultyId} onChange={(event) => { const id = event.target.value; reset({}, () => setDifficultyId(id)) }}>{BOT_LEVELS.map((level) => <option key={level.id} value={level.id}>{level.label}</option>)}</select></label></>}
+        {mode === 'bot' && <label>Your pieces<select value={colorChoice} onChange={(event) => { const choice = event.target.value; reset({}, () => { const color = choice === 'random' ? (crypto.getRandomValues(new Uint8Array(1))[0] % 2 ? 'w' : 'b') : choice; setColorChoice(choice); setHumanColor(color); setFlipped(color === 'b') }) }}><option value="w">White</option><option value="b">Black</option><option value="random">Random</option></select></label>}
       </div>
     </div>
-    {mode === 'bot' && <div className="bot-setup-note"><div><p>{difficulty.note} Strength levels are not calibrated player ratings.</p><p className="engine-attribution">Powered by <a href="https://github.com/official-stockfish/Stockfish" target="_blank" rel="noreferrer">Stockfish 19</a> through <a href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noreferrer">Stockfish.js</a> · <a href="/stockfish/COPYING.txt" target="_blank" rel="noreferrer">GPL-3.0 license</a></p></div><label><input type="checkbox" checked={hintsAllowed} onChange={(event) => { setHintsAllowed(event.target.checked); if (!event.target.checked) { hintGeneration.current += 1; if (hinting) cancelSearch(); setHinting(false); setHint(null) } }} /> Allow hints</label></div>}
+    {mode === 'bot' && <><div className="bot-levels" role="radiogroup" aria-label="Choose a Stockfish difficulty">
+      {BOT_LEVELS.map((level, index) => <button key={level.id} type="button" role="radio" aria-checked={level.id === difficultyId} className={level.id === difficultyId ? 'selected' : ''} onClick={() => chooseDifficulty(level.id)}>
+        <span>0{index + 1}</span><b>{level.label}</b><small>{level.note}</small>
+      </button>)}
+    </div><div className="bot-setup-note"><div><p>{difficulty.note} Strength levels are not calibrated player ratings.</p><p className="engine-attribution">Powered by <a href="https://github.com/official-stockfish/Stockfish" target="_blank" rel="noreferrer">Stockfish 19</a> through <a href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noreferrer">Stockfish.js</a> · <a href="/stockfish/COPYING.txt" target="_blank" rel="noreferrer">GPL-3.0 license</a></p></div><label><input type="checkbox" checked={hintsAllowed} onChange={(event) => { setHintsAllowed(event.target.checked); if (!event.target.checked) { hintGeneration.current += 1; if (hinting) cancelSearch(); setHinting(false); setHint(null) } }} /> Allow hints</label></div></>}
     <nav className="table-navigation" aria-label="Play modes"><Link to="/play/local">Local</Link><Link to="/play/bot">Bots</Link><Link to="/online">Online</Link></nav>
     <div className="game-layout">
       {playerStrip(flipped ? 'w' : 'b', true)}
-      <div className="playing-table"><ChessBoard fen={displayFen} onMove={playMove} flipped={flipped} interactive={!outcome && !reviewing && (mode === 'local' || (game.turn() === humanColor && !thinking))} lastMove={lastMove} label="Game board" /></div>
+      <div className="playing-table"><ChessBoard fen={displayFen} onMove={playMove} flipped={flipped} interactive={!outcome && !reviewing && (mode === 'local' || (game.turn() === humanColor && !thinking))} lastMove={lastMove} arrows={hint ? [hint] : []} label="Game board" /></div>
       {playerStrip(flipped ? 'b' : 'w', false)}
       <aside className="score-panel">
         <div className="score-panel-top"><p className="eyebrow">Score sheet</p><span className={thinking ? 'thinking-dot' : ''} aria-live="polite">{status}</span></div>
@@ -232,6 +240,7 @@ export function GamePage({ mode }) {
           {!outcome && mode === 'local' && <button className="quiet-button" onClick={() => setConfirmation({ title: 'Agree to a draw?', message: 'Both players must agree. Accepting ends this game as a draw.', confirmLabel: 'Both players agree', action: () => finish('Draw by agreement') })}>Agree draw</button>}
           {!outcome && (mode === 'local' || game.turn() === humanColor) && claim && <button className="quiet-button" onClick={() => { current.claimDraw(); refresh() }}>Claim draw</button>}
           {!outcome && !reviewing && (mode === 'local' || game.turn() === humanColor) && <button className="quiet-button" aria-pressed={claimIntended} onClick={() => { setClaimIntended(!claimIntended); setNotice('') }}>{claimIntended ? 'Cancel draw claim' : 'Claim with a move'}</button>}
+          {outcome && <><Link className="quiet-button" to="/">Return to play menu</Link><Link className="quiet-button" to="/profile">Open scorebook</Link></>}
         </div>
         {claimIntended && <p className="result-note" role="status">Choose the move that would produce the third repetition or complete fifty moves without a pawn move or capture. It will be checked without playing it.</p>}
         <details className="position-tools"><summary>Position & game files</summary><button className="quiet-button" onClick={() => exportGame('fen')}>Export FEN</button><button className="quiet-button" onClick={() => exportGame('pgn')}>Export PGN</button>

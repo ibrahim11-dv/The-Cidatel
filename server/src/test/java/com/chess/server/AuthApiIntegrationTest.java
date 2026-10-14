@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -66,13 +67,18 @@ class AuthApiIntegrationTest {
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"boardTheme":"forest","pieceStyle":"modern","pieceTone":"brass","siteTheme":"mahogany","customColors":{"--paper":"#112233","--legal":"#445566"}}
+                                {"boardTheme":"forest","pieceStyle":"modern","pieceTone":"brass","siteTheme":"mahogany","customColors":{"--paper":"#112233","--legal":"#445566"},"coordinates":false,"legalMoves":false,"sound":true,"animationMs":240,"orientation":"black"}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.preferences.boardTheme").value("forest"))
                 .andExpect(jsonPath("$.preferences.siteTheme").value("mahogany"))
                 .andExpect(jsonPath("$.preferences.pieceStyle").value("modern"))
-                .andExpect(jsonPath("$.preferences.customColors['--paper']").value("#112233"));
+                .andExpect(jsonPath("$.preferences.customColors['--paper']").value("#112233"))
+                .andExpect(jsonPath("$.preferences.coordinates").value(false))
+                .andExpect(jsonPath("$.preferences.legalMoves").value(false))
+                .andExpect(jsonPath("$.preferences.sound").value(true))
+                .andExpect(jsonPath("$.preferences.animationMs").value(240))
+                .andExpect(jsonPath("$.preferences.orientation").value("black"));
 
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -82,6 +88,26 @@ class AuthApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
                 .andExpect(jsonPath("$.user.username").value(username))
-                .andExpect(jsonPath("$.user.preferences.siteTheme").value("mahogany"));
+                .andExpect(jsonPath("$.user.preferences.siteTheme").value("mahogany"))
+                .andExpect(jsonPath("$.user.preferences.orientation").value("black"));
+    }
+
+    @Test
+    void repeatedLoginAttemptsAreRateLimitedWithRetryGuidance() throws Exception {
+        for (int attempt = 0; attempt < 10; attempt++) {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"identifier\":\"missing-account\",\"password\":\"IncorrectPassword9\"}")
+                            .with(request -> { request.setRemoteAddr("198.51.100.44"); return request; }))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"identifier\":\"missing-account\",\"password\":\"IncorrectPassword9\"}")
+                        .with(request -> { request.setRemoteAddr("198.51.100.44"); return request; }))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(header().exists("Retry-After"))
+                .andExpect(jsonPath("$.message").value("Too many authentication attempts. Try again shortly."));
     }
 }

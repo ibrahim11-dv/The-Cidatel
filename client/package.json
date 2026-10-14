@@ -11,6 +11,13 @@
     "verify:online-history": "node scripts/verify-online-history.mjs",
     "verify:online-clock": "node scripts/verify-online-clock.mjs",
     "verify:online-time": "node scripts/verify-online-time-control.mjs",
+    "verify:board-annotations": "node scripts/verify-board-annotations.mjs",
+    "verify:online-sound": "node scripts/verify-online-sound.mjs",
+    "verify:online-invitation": "node scripts/verify-online-invitation.mjs",
+    "verify:online-browser": "node scripts/verify-online-browser.mjs",
+    "verify:browser-ui": "node scripts/verify-browser-ui.mjs",
+    "verify:online-fen": "node scripts/verify-online-fen.mjs",
+    "verify:scorebook": "node scripts/verify-scorebook-records.mjs",
     "verify:api": "node scripts/verify-api.mjs",
     "verify:local": "node scripts/verify-local.mjs",
     "verify:engine-protocol": "node scripts/verify-engine-protocol.mjs",
@@ -31,6 +38,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^5.0.4",
+    "playwright-core": "^1.64.0",
     "vite": "^7.1.7"
   }
 }

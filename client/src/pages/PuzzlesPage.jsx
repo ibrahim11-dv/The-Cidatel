@@ -9,19 +9,21 @@ import { isPuzzleAnswer } from '../lib/puzzleAnswer'
 import { loadPuzzleStats, savePuzzleStats, updatePuzzleStats } from '../lib/puzzleStats'
 import { filterPuzzles, nextPuzzleId, nextUnfinishedPuzzle, puzzleCategories, puzzleObjective, sortPuzzlesByDifficulty } from '../lib/puzzleCatalog'
 import { puzzleApi } from '../lib/api'
+import { moveSound, playSound, unlockSound } from '../lib/sound'
 
 export function PuzzlesPage() {
-  const { session } = useSession()
-  return <PuzzleStudy key={session?.id || 'guest'} ownerId={session?.id || 'guest'} />
+  const { session, boardOptions } = useSession()
+  return <PuzzleStudy key={session?.id || 'guest'} ownerId={session?.id || 'guest'} soundEnabled={boardOptions.sound} />
 }
 
-function PuzzleStudy({ ownerId }) {
+function PuzzleStudy({ ownerId, soundEnabled }) {
   const [selectedId, setSelectedId] = useState(puzzles[0].id)
   const [fen, setFen] = useState(puzzles[0].fen)
   const [step, setStep] = useState(0)
   const [history, setHistory] = useState([])
   const [feedback, setFeedback] = useState('Find the forcing line.')
   const [hint, setHint] = useState(false)
+  const [manuallyFlipped, setManuallyFlipped] = useState(false)
   const [completed, setCompleted] = useState(() => getPuzzleProgress(ownerId))
   const [revealed, setRevealed] = useState(false)
   const [stats, setStats] = useState(() => loadPuzzleStats(ownerId))
@@ -102,6 +104,7 @@ function PuzzleStudy({ ownerId }) {
   const game = new Chess(fen)
   const solved = step >= puzzle.solution.length
   const lastMove = history.at(-1)
+  const flipped = (puzzle.side === 'b') !== manuallyFlipped
 
   useEffect(() => {
     attempt.current = null
@@ -109,6 +112,7 @@ function PuzzleStudy({ ownerId }) {
     setStep(0)
     setHistory([])
     setHint(false)
+    setManuallyFlipped(false)
     setRevealed(false)
     setFeedback('Find the forcing line.')
   }, [puzzle])
@@ -150,6 +154,10 @@ function PuzzleStudy({ ownerId }) {
       }
 
       const lineFinished = nextStep >= puzzle.solution.length
+      if (soundEnabled) {
+        unlockSound()
+        playSound(lineFinished ? 'success' : moveSound(played))
+      }
       setFen(next.fen())
       setHistory((previous) => [...previous, ...next.history({ verbose: true })])
       setStep(nextStep)
@@ -206,8 +214,9 @@ function PuzzleStudy({ ownerId }) {
         </aside>
         <div className="puzzle-table">
           <div className="puzzle-title"><div><span>{puzzle.theme}</span><h2>{puzzle.title}</h2></div><p>{puzzle.side === 'w' ? 'White' : 'Black'} to play · {puzzle.rating ? `Lichess ${puzzle.rating}` : puzzle.difficulty}</p></div>
-          <ChessBoard fen={fen} onMove={playMove} interactive={!solved && !revealed && syncState !== 'syncing'} flipped={puzzle.side === 'b'} lastMove={lastMove} label={`${puzzle.title} puzzle board`} />
+          <ChessBoard fen={fen} onMove={playMove} interactive={!solved && !revealed && syncState !== 'syncing'} flipped={flipped} lastMove={lastMove} label={`${puzzle.title} puzzle board`} />
           <div className="puzzle-controls">
+            <button className="quiet-button" type="button" aria-pressed={manuallyFlipped} onClick={() => setManuallyFlipped((value) => !value)}>Flip board</button>
             <button className="primary-button" type="button" disabled={solved || revealed || syncState === 'syncing'} onClick={() => { if (!hint) record('hint'); setHint(!hint) }}>{hint ? 'Hide hint' : 'Reveal hint'}</button>
             <button className="quiet-button" type="button" disabled={solved || revealed || syncState === 'syncing'} onClick={showSolution}>Show solution</button>
             <button className="quiet-button" type="button" onClick={resetPuzzle}>Retry puzzle</button>

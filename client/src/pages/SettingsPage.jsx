@@ -10,6 +10,7 @@ import { colorContrastIssues } from '../lib/colorContrast'
 export function SettingsPage() {
   const { session, preferences, setPreferences, boardOptions, updateBoardOptions } = useSession()
   const [savingPieces, setSavingPieces] = useState(false)
+  const [savingBoard, setSavingBoard] = useState(false)
   async function choosePieces(patch) {
     setSavingPieces(true)
     try {
@@ -70,8 +71,14 @@ export function SettingsPage() {
     } catch (error) { setNotice(`${error.message} Your preview remains available on this browser.`) }
     finally { setSavingTheme(false) }
   }
-  function option(patch) {
-    setNotice(updateBoardOptions(patch) ? 'Board preferences saved on this browser.' : 'Preferences applied but browser storage is unavailable.')
+  async function option(patch) {
+    setSavingBoard(true)
+    try {
+      const saved = await updateBoardOptions(patch)
+      setNotice(session ? 'Board preferences saved to your account.' : saved ? 'Board preferences saved on this browser.' : 'Preferences applied but browser storage is unavailable.')
+    } catch (error) {
+      setNotice(`${error.message} Your board settings remain applied on this browser.`)
+    } finally { setSavingBoard(false) }
     if (patch.sound) { unlockSound(); playSound('move') }
   }
   return <section><header className="page-heading"><p className="eyebrow">Your club, your colors</p><h1>Appearance</h1><p>Choose the materials and atmosphere for your next game.</p></header>
@@ -91,13 +98,13 @@ export function SettingsPage() {
     <section className="board-settings" aria-label="Board preferences"><h2>At the board</h2>
       <label>Piece rendering<select value={preferences.pieceStyle} disabled={savingPieces} onChange={(event) => choosePieces({ pieceStyle: event.target.value })}><option value="classic">Classic outline</option><option value="modern">Fine outline</option><option value="manuscript">Bold outline</option></select></label>
       <label>Piece tone<select value={preferences.pieceTone} disabled={savingPieces} onChange={(event) => choosePieces({ pieceTone: event.target.value })}><option value="ivory">Ivory</option><option value="ebony">Ebony</option><option value="brass">Brass</option></select></label>
-      <label><input type="checkbox" checked={boardOptions.coordinates} onChange={(event) => option({ coordinates: event.target.checked })} /> Board coordinates</label>
-      <label><input type="checkbox" checked={boardOptions.legalMoves} onChange={(event) => option({ legalMoves: event.target.checked })} /> Show legal moves</label>
-      <label><input type="checkbox" checked={boardOptions.sound} onChange={(event) => option({ sound: event.target.checked })} /> Move and game sounds</label>
-      <label>Movement speed<select value={boardOptions.animationMs} onChange={(event) => option({ animationMs: Number(event.target.value) })}><option value="0">Instant</option><option value="100">Fast</option><option value="160">Natural</option><option value="240">Relaxed</option></select></label>
-      <label>Local board orientation<select value={boardOptions.orientation} onChange={(event) => option({ orientation: event.target.value })}><option value="white">White at the bottom</option><option value="black">Black at the bottom</option></select></label>
-      <p className="small-note">Reduced-motion preferences override animation speed. These controls are saved on this browser.</p>
-      <button className="quiet-button" onClick={() => option(DEFAULT_BOARD_OPTIONS)}>Reset board preferences</button>
+      <label><input disabled={savingBoard} type="checkbox" checked={boardOptions.coordinates} onChange={(event) => void option({ coordinates: event.target.checked })} /> Board coordinates</label>
+      <label><input disabled={savingBoard} type="checkbox" checked={boardOptions.legalMoves} onChange={(event) => void option({ legalMoves: event.target.checked })} /> Show legal moves</label>
+      <label><input disabled={savingBoard} type="checkbox" checked={boardOptions.sound} onChange={(event) => void option({ sound: event.target.checked })} /> Move and game sounds</label>
+      <label>Movement speed<select disabled={savingBoard} value={boardOptions.animationMs} onChange={(event) => void option({ animationMs: Number(event.target.value) })}><option value="0">Instant</option><option value="100">Fast</option><option value="160">Natural</option><option value="240">Relaxed</option></select></label>
+      <label>Local board orientation<select disabled={savingBoard} value={boardOptions.orientation} onChange={(event) => void option({ orientation: event.target.value })}><option value="white">White at the bottom</option><option value="black">Black at the bottom</option></select></label>
+      <p className="small-note">Reduced-motion preferences override animation speed. {session ? 'These controls follow your club account.' : 'These controls are saved on this browser.'}</p>
+      <button className="quiet-button" disabled={savingBoard} onClick={() => void option(DEFAULT_BOARD_OPTIONS)}>Reset board preferences</button>
     </section>
   </section>
 }

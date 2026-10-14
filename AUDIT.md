@@ -1,40 +1,38 @@
-# The Citadel — audit and implementation roadmap
+# The Citadel — current architecture and feature audit
 
-Audit date: 10 October 2026. Scope: all handwritten client/server source, configuration and existing verification scripts; generated bundles and vendored engine binaries are not application source.
+Audit updated 14 October 2026. This covers handwritten application source and verification scripts; generated bundles and Stockfish assets are excluded.
 
 ## Architecture
 
-React 19 + Vite 7 + React Router 7. Component state and SessionContext; CSS is centralized in styles.css. One ChessBoard is shared by local, bot, puzzles, home and replay screens. chess.js 1.4 validates client moves. Stockfish 19 runs lazily in a Web Worker. Spring Boot 3.5.6/Java 17 exposes account REST endpoints through Vite's /api proxy. JPA/H2 stores accounts and three appearance preferences. BCrypt hashes passwords; JWT sessions are held in sessionStorage. Game records and solved puzzle IDs are localStorage data, not server records.
+The client is React 19 with Vite 7 and React Router 7. `SessionContext` owns signed-in state, guest/account preferences, and board controls. `ChessBoard` is the single visual board used by local, bot, online, puzzle, home, preview, and replay experiences. `chess.js` owns client-side legal-move and local-game rules; Stockfish 19 runs in a browser Worker for bot games.
 
-## Initial feature audit
+The server is Spring Boot 3.5 on Java 17. JPA/H2 persists accounts, appearance preferences, puzzle progress, and online-game checkpoints. The game aggregate uses chesslib for authoritative online move validation, clocks, draw adjudication, idempotent commands, and durable recovery. JWT sessions, BCrypt password hashes, CORS configuration, input validation, and short authentication-burst limits protect the API.
 
-| Area | Status | Evidence and required changes |
+## Core feature audit
+
+| Area | Status | Current evidence |
 |---|---|---|
-| Local play | PARTIAL / repetition BROKEN | GamePage.jsx reconstructs Chess from FEN every ply, losing history. Click moves, promotion, resignation and SAN exist. No clocks, flip, draw agreement/claims, drag, imports or guest review. |
-| Rules | PARTIAL | chess.js handles legal movement, castling, en passant, promotion, mate/stalemate. lib/chess.js automatically ends claimable draws; no fivefold/75-move handling. Unusual dead positions need further work. |
-| Bots | PARTIAL | Real Stockfish worker and five strength configurations; live engine smoke test passes. useStockfish.js can assign an old stopped search's bestmove to a new request. No takebacks/hints/random side; displayed Elo is uncalibrated. |
-| Online | MISSING | OnlinePage.jsx contains placeholder buttons. No game API, authoritative rules, clocks, matchmaking, transport, reconnection or persistence on server. |
-| Puzzles | PARTIAL | Six composed studies have legal terminal lines (verify:data passes). PuzzlesPage.jsx loses earlier SAN history between steps; account required; no solution playback, next action, attempt/streak metrics or dataset provenance. Legal lines alone do not prove unique/best solutions. |
-| Accounts | IMPLEMENTED, limited validation | Registration/login/profile/password/appearance API and integration test exist. Production configuration, rate limiting, token invalidation and validation bounds need hardening. |
-| Personalization | PARTIAL | Three board palettes and font/tone variations saved for accounts. No guest settings, six app themes, custom colors, sound, coordinates or motion controls. |
-| Branding/layout | PARTIAL | Consistent light editorial walnut design, responsive breakpoints and reduced-motion CSS. Old name, Unicode pieces, no favicon, header-only navigation, large headings and pale panels. |
-| Persistence | PARTIAL | Account data persists in H2. Local games save only at completion and only signed in. No active game restoration. |
-| Accessibility/testing | PARTIAL | Labels, focus styles, keyboard button input and reduced motion exist. Promotion focus/escape, error boundary, actual browser gameplay and comprehensive rules/clock tests are missing. |
+| Citadel identity and layout | IMPLEMENTED | Original rook mark and favicon in `client/public/citadel.svg`; titles and metadata in `client/index.html`; responsive shell in `Shell.jsx` and `styles.css`. |
+| Shared chessboard | IMPLEMENTED | `ChessBoard.jsx` provides SVG pieces, click, pointer-drag, touch, legal/selected/last/check highlights, promotion, capture and castling animations, coordinates, arrows, premove markers, keyboard operation, roving focus, and reduced-motion behavior. |
+| Local play | IMPLEMENTED | `LocalGame` preserves complete move history, clocks, legal special moves, automatic and claimable draws, resignation, review, FEN/PGN, persistent restoration, and completed-game records. `verify:local` covers the rules and timing path. |
+| Bot play | IMPLEMENTED | `GamePage.jsx`, `useStockfish.js`, and `stockfishClient.js` provide genuine Worker-based Stockfish 19 play, six calibrated-by-skill configurations, color choice, hints, takebacks, lifecycle recovery, and sound/status feedback. `verify:bot` and the Edge journey cover both colors and live replies. |
+| Online play | IMPLEMENTED | `GameController`, `GameSession`, and `PrivateGames` provide authenticated private links, compatible matchmaking, authoritative moves/clocks, draw offers and claims, resignations, rematches, refresh recovery, maintenance, abandonment, and history. `verify:online-browser` runs two isolated Edge accounts through the full visible flow. |
+| Puzzles | IMPLEMENTED | `data/puzzles.js` contains composed studies plus attributed CC0 Lichess material. `PuzzlesPage.jsx` supports categories, valid lines, opponent replies, feedback, hints, reveal/retry/next, progression, board flip, local/account progress, and statistics. Catalog and stats verifiers validate the data and persistence behavior. |
+| Themes and personalization | IMPLEMENTED | `themes.js`, `SettingsPage.jsx`, and account appearance endpoints provide six themes, custom color tokens, contrast feedback, board/piece choices, coordinates, legal markers, sound, movement speed, orientation, guest persistence, and account synchronization. |
+| Profiles and history | IMPLEMENTED | Profile and guest scorebook views combine local, bot, and online records, offer full-history expansion, replay routes, player-relative results, and puzzle progress. |
+| Accessibility and resilience | IMPLEMENTED | Semantic controls, focus return for confirmations, roving board focus, arrow-key navigation, touch controls, responsive breakpoints, reduced motion, and an application error boundary are present. The rendered Edge check verifies desktop, mobile, keyboard, and reduced-motion behavior. |
 
-## Ordered roadmap
+## Verification evidence
 
-1. Preserve existing stack and baseline tests. Introduce Citadel identity, original geometric rook, shared walnut tokens and guest settings foundation.
-2. Local play first: retain complete Chess state; distinguish draw claims and automatic draws; add clocks, flip, drag/touch, check highlight, material, review, imports/exports and restoration. Verify special moves and complete games.
-3. Repair Stockfish request lifecycle, six meaningful strengths without Elo claims, color/random setup, takeback/hints and completion tests.
-4. Add authoritative multiplayer to Spring Boot with an established Java rules library, bound player identity, validated commands, clocks, queues/private rooms, reconnect and rematch. Test real independent browser sessions.
-5. Validate and license puzzle content; support alternatives where applicable, full move lines, hints/solution/next and persistent statistics for guests/accounts.
-6. Six full themes, color overrides and board controls, then account synchronization and previews.
-7. Browser QA desktop/tablet/mobile, security/performance/accessibility review and regression checks. Do not mark the product complete before all four modes pass.
+The current server suite contains 15 reports and 45 passing tests with zero failures and errors. It covers authentication, API error dispatch, account preference persistence, puzzle progress, game aggregate rules, clocks, timeout recovery, durable checkpoints, process restart, matchmaking, invitations, draw rules, rematches, and authorization.
 
-## Primary files
+Client verification includes legal local play, Stockfish protocol and live responses, puzzle catalog and statistics, data integrity, browser storage/auth boundaries, online helpers, profile records, board annotations, and production builds. The two main rendered checks are:
 
-Client: src/lib/chess.js, src/pages/GamePage.jsx, src/components/ChessBoard.jsx, src/components/MoveLedger.jsx, src/styles.css, src/components/Shell.jsx, src/context/SessionContext.jsx, src/lib/storage.js, src/hooks/useStockfish.js, src/pages/OnlinePage.jsx, src/pages/PuzzlesPage.jsx, src/data/puzzles.js, src/App.jsx, index.html. Server: add a separate game domain/application/transport area; preserve account ports and security boundaries.
+- `npm run verify:browser-ui` for local, bot, puzzle, settings, desktop/mobile, keyboard, and reduced-motion paths.
+- `npm run verify:online-browser` for two independently authenticated Edge sessions using the real Spring server.
 
-## Baseline verification
+## Operational boundaries
 
-Passed: verify:data (six legal puzzle lines), verify:auth (storage/form boundary), verify:bot (live Stockfish UCI search). These are smoke tests, not complete gameplay acceptance tests.
+Online updates use short polling rather than a WebSocket, with the server remaining authoritative. The current deployment model is one API instance: active games are durable across restart, while waiting queues, invitations, and rematch offers are intentionally transient. Authentication burst limits are in-process; multi-instance production deployments should apply the same limits at a shared edge or store.
+
+The deliberately deferred areas remain advanced ratings, leaderboards, tournaments, social networks, subscriptions, broad anti-cheat systems, opening explorers, and full engine analysis. They are outside the defined core-mode scope.

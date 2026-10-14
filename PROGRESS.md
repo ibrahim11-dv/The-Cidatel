@@ -1,5 +1,191 @@
 # The Citadel — implementation checkpoint
 
+## 14 October 2026: puzzle-board view control
+
+Puzzle players can now flip the shared board whenever a different view helps them study a line. Each puzzle still opens with the side to move at the player side, and choosing another study restores that natural orientation. The Edge check proves the rendered board reverses before completing both short and multi-move puzzles.
+
+Commit message: feat(puzzles): add board flip control
+
+## 14 October 2026: browser-proven reduced motion
+
+The shared board already honors the operating system’s reduced-motion setting; the Edge acceptance flow now proves it. A local move under a reduced-motion media preference updates the real board normally while creating no Web Animation, protecting fast and motion-sensitive play without changing chess behavior.
+
+Commit message: test(accessibility): verify reduced-motion board moves
+
+## 14 October 2026: efficient board keyboard focus
+
+The shared board now uses one roving Tab stop instead of making keyboard players tab across all 64 squares. Tab enters the current square once, and the established arrow-key navigation moves that focus through the visual board in either orientation. The Edge acceptance flow confirms the single-stop invariant alongside selecting and moving pieces from the keyboard.
+
+Commit message: feat(accessibility): add roving board focus
+
+## 14 October 2026: protected authentication bursts
+
+The API now limits account creation per client and repeated login attempts per client inside a short time window. A throttled request receives the same structured API-error shape as other failures plus a `Retry-After` value, letting the client report a clear recovery path. The integration suite proves that excessive login attempts are refused without changing ordinary authentication behavior.
+
+Commit message: feat(security): throttle authentication bursts
+
+## 14 October 2026: browser-proven local board orientation
+
+The Local board orientation preference now has a rendered acceptance path: the Edge check changes it to Black at the bottom, confirms browser persistence across a reload, and opens a new local table to prove the board is actually flipped for play. This closes the loop between the Appearance control, local storage, and the shared board.
+
+Commit message: test(settings): verify local board orientation
+
+## 14 October 2026: directional keyboard board navigation
+
+The shared chessboard now lets keyboard users move focus between visual squares with the arrow keys, while Enter and Space retain the existing select-and-move behavior. Navigation automatically follows a flipped board: visual up reaches the correct rank for either color. The Edge check verifies both orientations, and the production build passes.
+
+Commit message: feat(board): add directional keyboard navigation
+
+## 14 October 2026: confirmed invitation-link copying
+
+Private-game hosts now have an explicit Copy invitation link control and receive a status confirmation after a successful clipboard write, with a clear select-and-copy fallback for restricted browsers. The real two-browser journey verifies that the copied text exactly matches the invitation URL used by the joining guest.
+
+Commit message: feat(online): add invitation copy confirmation
+
+## 14 October 2026: browser-proven promotion dialog
+
+The rendered local-table journey now imports a legal one-step promotion position, opens the shared board’s promotion dialog, chooses a queen, and confirms the promoted piece reaches the board. This complements the rules-level underpromotion tests with the player-visible promotion control.
+
+Commit message: test(board): verify browser promotion choice
+
+## 14 October 2026: browser-proven account appearance persistence
+
+The online Edge journey now changes an authenticated player to Forest Chess, enters a custom background color through the settings control, saves it to the account, reloads the page, and confirms both the theme token and board preference have been restored. The end-to-end flow then continues through the full two-player online journey.
+
+Commit message: test(settings): verify browser account appearance
+
+## 14 October 2026: complete scorebook access
+
+The scorebook still opens with its seven newest games for a calm profile layout, but now provides an accessible toggle to show every older local, bot, and online record. Completed games therefore remain reachable after the recent list fills up. The record verifier covers both collapsed and expanded selections, and the production client build passes.
+
+Commit message: feat(profile): show complete game history
+
+## 14 October 2026: browser-proven matchmaking cancellation
+
+The online Edge journey now cancels a visible public search, verifies that the host returns to a usable lobby, starts a new search, and then pairs normally with the guest. The existing server integration test covers queue removal; this adds the rendered recovery path that players use.
+
+Commit message: test(online): verify browser matchmaking cancellation
+
+## 14 October 2026: browser-proven multi-move puzzle study
+
+The rendered Edge journey now selects Légal’s finish, shows that an incorrect legal candidate receives feedback without advancing the study, retries the initial position, and solves the five-ply line through both automatic opponent replies. This complements the catalog and progress-unit checks with the actual shared board interaction.
+
+Commit message: test(puzzles): verify browser multi-move study
+
+## 14 October 2026: browser-proven online draw agreement
+
+The two-player Edge journey now opens a fresh private table after its rematch coverage, presents a host draw offer to the guest, declines it, then accepts the guest’s return offer. Both players receive the same authoritative ½–½ agreement result before continuing to matchmaking. This makes the visible draw controls part of the end-to-end online proof, alongside the existing server authorization checks.
+
+Commit message: test(online): verify browser draw agreement
+
+## 14 October 2026: browser-proven Black-side bot play
+
+The real Edge acceptance journey now selects Black in the practice room, waits for the genuine Stockfish worker to make White’s opening move, verifies that Black is placed at the player side of the board, and completes a legal Black reply. The existing White-side reply and takeback coverage remains in the same journey.
+
+Commit message: test(bots): verify browser play as black
+
+## 14 October 2026: browser-proven online rematches
+
+The real Edge journey now requests and accepts a rematch after a private game, checks that both players receive a fresh empty score sheet, finishes that second game, and verifies that both completed tables remain in the winning player’s scorebook. This proves the visible rematch path alongside the server-level color-swap and time-control tests.
+
+Commit message: test(online): verify browser rematches
+
+## 14 October 2026: browser-proven matchmaking
+
+The two-player Edge acceptance journey now returns both players from a completed private table to the online room, starts a compatible public search from each account, verifies that the server assigns both to the same live table, and completes that matched game by resignation. This covers the visible matchmaking path in addition to invitation-link joining, move and clock synchronization, refresh recovery, and scorebook presentation.
+
+Commit message: test(online): verify browser matchmaking
+
+## 14 October 2026: local result follow-up actions
+
+Completed local and bot tables now offer an explicit Return to play menu action and a direct scorebook link alongside replay and rematch controls. The rendered Edge check completes a local resignation after restored moves, then follows the result action back to the home play menu.
+
+Commit message: feat(local): add completed-game follow-up actions
+
+## 14 October 2026: unified game scorebook
+
+The account scorebook now combines local, bot, and durable online games in one completion-ordered list. Online outcomes are expressed from the player’s perspective, such as “Won · resignation,” and a player with only online games no longer sees a false empty scorebook. The browser acceptance journey reaches the winner’s scorebook after a real resignation and confirms the rendered entry.
+
+Commit message: feat(profile): unify completed game records
+
+## 14 October 2026: account-backed board controls
+
+Signed-in players now carry their board coordinates, legal-move markers, sounds, movement speed, and preferred local orientation with their club account. The appearance endpoint validates and stores each value, while nullable database fields keep installed accounts compatible and guests retain browser-local preferences. An older cached session migrates its existing browser choices once, instead of silently replacing them with defaults. The two-player Edge journey now toggles a signed-in board setting, reloads to verify its restoration, then completes a full private online game.
+
+Commit message: feat(settings): sync board controls to accounts
+
+## 14 October 2026: stable completed-game dates
+
+Completed local games now retain the instant at which they ended inside their saved game snapshot. Reopening a finished local table therefore preserves the date in its scorebook record instead of rewriting it on every restore. Existing snapshots without the new field receive a single migration timestamp when next restored, and automatic endings use the same completion path.
+
+Commit message: fix(local): preserve completed game dates
+
+## 14 October 2026: online sign-in return
+
+Visitors who enter the online room before signing in now return directly to that room after authentication, rather than landing on their profile. The rendered Edge check follows the visible sign-in button and verifies the protected return destination.
+
+Commit message: fix(online): return to play after sign-in
+
+## 14 October 2026: rendered core-mode coverage
+
+The local table, study room, bot roster, appearance studio, and touch-sized local board now have a real Edge acceptance check. It uses keyboard selection to play and restore a legal local game after a refresh, completes a puzzle, waits for a genuine Stockfish worker reply and takes it back, selects the Master engine level, persists a complete site theme through refresh, and verifies that desktop and mobile layouts do not overflow horizontally.
+
+Commit message: test(accessibility): cover keyboard board moves
+
+## 14 October 2026: browser-proven online table
+
+The project now includes an Edge browser acceptance check with two isolated accounts. It registers both players through the visible interface, creates and follows a private invitation, confirms automatic joining, synchronizes two moves and both displayed clocks, refreshes one player back into the active table, and synchronizes a resignation result. Online premove previews now clear an en-passant target that belongs to the current opponent, avoiding a client-side crash during a restored position after a double-pawn move. The check uses the installed Chromium browser through Playwright Core and leaves the production application unchanged.
+
+Commit message: fix(online): restore premove boards after refresh
+
+## 14 October 2026: bot opponent roster
+
+The practice room now presents all six genuine Stockfish strengths as a compact opponent roster, with each level’s character and selected state visible before play begins. Choosing a different opponent starts a fresh game through the existing safe reset confirmation, retaining the color, clock, hint, and worker behavior already used by the table.
+
+Commit message: feat(bots): add a selectable Stockfish roster
+
+## 14 October 2026: direct invitation links
+
+Opening a private-game invitation now joins its table automatically once the authenticated player’s active-table check has completed. The guard never displaces an existing game, a hosted invitation, or an in-progress matchmaking search, and invalid links still leave the code in the manual join field for recovery.
+
+Commit message: feat(online): join shared invitations automatically
+
+## 14 October 2026: flash-free saved appearance
+
+The application now reads an authenticated player’s saved site theme and custom colors before React renders. Returning players therefore receive their personal appearance from the first frame, while guests still retain their local theme preference. The account-theme verifier covers this bootstrap selection.
+
+Commit message: fix(settings): apply saved appearance before first render
+
+## 13 October 2026: recoverable application errors
+
+The Citadel now has a top-level error boundary. An unexpected rendering fault presents a concise recovery screen with a full application reload, instead of leaving a blank interface. The boundary sits outside account and route providers so it also covers failures while a screen is starting.
+
+Commit message: feat(app): add a recovery error boundary
+
+## 13 October 2026: scorebook puzzle statistics
+
+The signed-in scorebook now displays puzzle solve rate, current streak, best streak, and the next unfinished study in difficulty progression. It restores the same account-backed puzzle snapshot used by the study room, with the browser cache as an offline fallback. Guest scorebooks now surface their locally saved study record and next challenge too.
+
+Commit message: feat(profile): show puzzle performance and progression
+
+## 13 October 2026: online sound feedback
+
+Online tables now use the existing optional sound preference without trusting client-side actions. The client observes the authoritative move history and result snapshots: each newly accepted move receives its contextual cue, while a server-confirmed game end receives the completion cue once. Initial restores and unchanged polling snapshots stay silent.
+
+Commit message: feat(online): add authoritative move sounds
+
+## 13 October 2026: puzzle sound feedback
+
+The optional board-sound preference now applies in the study room. A correct puzzle move uses the same contextual move sound as the game tables, while a completed line plays the existing short success cue. Sound remains opt-in, begins only from the player’s move gesture, and never blocks solving a puzzle.
+
+Commit message: feat(puzzles): add optional success sounds
+
+## 13 October 2026: board arrows for hints and premoves
+
+The shared board now supports non-interactive directional arrows that follow its current orientation. Stockfish hints draw their proposed move directly on the practice board, and online premoves now show the same path alongside their origin and destination markers. The SVG layer never intercepts board input and ignores invalid annotations.
+
+Commit message: feat(board): show arrows for hints and premoves
+
 ## 13 October 2026: custom online clocks
 
 Online matchmaking and private invitations now support custom clocks, using the server’s existing 15-second to three-hour initial-time and 0–180-second increment limits. The setup form validates whole-number values before either request can start, renders non-minute controls clearly while waiting, and restores a custom invitation’s fields when a host returns to the lobby. The HTTP integration suite now proves that a 45+2 invitation reaches the authoritative server clock unchanged.

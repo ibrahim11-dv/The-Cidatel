@@ -11,6 +11,11 @@ export const DEFAULT_PREFERENCES = {
   pieceStyle: 'classic',
   pieceTone: 'ivory',
   customColors: {},
+  coordinates: true,
+  legalMoves: true,
+  sound: false,
+  animationMs: 160,
+  orientation: 'white',
 }
 
 export function getGuestPreferences() {

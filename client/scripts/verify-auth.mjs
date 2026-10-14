@@ -38,6 +38,7 @@ const {
   getGuestPreferences,
   saveGuestPreferences,
 } = await import('../src/lib/storage.js')
+const { savedTheme } = await import('../src/lib/themes.js')
 
 const firstSession = saveAuthenticatedSession({
   accessToken: 'test-jwt',
@@ -45,7 +46,7 @@ const firstSession = saveAuthenticatedSession({
     id: 'account-1',
     username: 'club_qa',
     email: 'club.qa@example.test',
-    preferences: { boardTheme: 'walnut', siteTheme: 'walnut', pieceStyle: 'classic', pieceTone: 'ivory', customColors: {} },
+    preferences: { boardTheme: 'walnut', siteTheme: 'walnut', pieceStyle: 'classic', pieceTone: 'ivory', customColors: {}, coordinates: true, legalMoves: true, sound: false, animationMs: 160, orientation: 'white' },
   },
 })
 
@@ -57,10 +58,11 @@ const appearanceSession = updateSavedSession({
   id: 'account-1',
   username: 'club_member',
   email: 'member@example.test',
-  preferences: { boardTheme: 'forest', siteTheme: 'mahogany', pieceStyle: 'modern', pieceTone: 'brass', customColors: { '--paper': '#112233' } },
+  preferences: { boardTheme: 'forest', siteTheme: 'mahogany', pieceStyle: 'modern', pieceTone: 'brass', customColors: { '--paper': '#112233' }, coordinates: false, legalMoves: false, sound: true, animationMs: 240, orientation: 'black' },
 })
 assert.equal(appearanceSession.username, 'club_member')
-assert.deepEqual(appearanceSession.preferences, { boardTheme: 'forest', siteTheme: 'mahogany', pieceStyle: 'modern', pieceTone: 'brass', customColors: { '--paper': '#112233' } })
+assert.deepEqual(appearanceSession.preferences, { boardTheme: 'forest', siteTheme: 'mahogany', pieceStyle: 'modern', pieceTone: 'brass', customColors: { '--paper': '#112233' }, coordinates: false, legalMoves: false, sound: true, animationMs: 240, orientation: 'black' })
+assert.equal(savedTheme(appearanceSession), 'mahogany')
 
 clearSession()
 assert.equal(getSession(), null)

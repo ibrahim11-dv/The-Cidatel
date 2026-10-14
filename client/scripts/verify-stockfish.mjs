@@ -42,10 +42,11 @@ try {
   assert.ok(commands.some((command) => command.endsWith(' moves e2e4 e7e5 g1f3 b8c6')))
   const canceled = engine.request(new Chess().fen(), BOT_LEVELS[5])
   engine.cancel()
-  const fresh = engine.request('7k/P7/8/8/8/8/8/7K w - - 0 1', BOT_LEVELS[5])
+  const promotionFen = 'k7/6P1/8/8/8/8/8/7K w - - 0 1'
+  const fresh = engine.request(promotionFen, BOT_LEVELS[5])
   assert.equal(await canceled, null)
   const promotion = await fresh
-  const promoted = new Chess('7k/P7/8/8/8/8/8/7K w - - 0 1')
+  const promoted = new Chess(promotionFen)
   assert.ok(promoted.move(promotion))
   assert.ok(promotion.promotion, 'Engine promotes the pawn')
   const mating = new Chess('6k1/8/5QK1/8/8/8/8/8 w - - 0 1')

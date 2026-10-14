@@ -1,8 +1,9 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Chess } from 'chess.js'
 import { useSession } from '../context/SessionContext'
 import { ChessPiece } from './ChessPiece'
 import { premoveFen } from '../lib/premove'
+import { boardArrows } from '../lib/boardAnnotations'
 
 const PIECES = {
   w: { p: '♙', n: '♘', b: '♗', r: '♖', q: '♕', k: '♔' },
@@ -15,14 +16,16 @@ export function pieceGlyph(piece) {
   return piece ? PIECES[piece.color][piece.type] : ''
 }
 
-export function ChessBoard({ fen, onMove, flipped = false, interactive = true, lastMove = null, label = 'Chessboard', premoveColor = null, markedSquares = [] }) {
+export function ChessBoard({ fen, onMove, flipped = false, interactive = true, lastMove = null, label = 'Chessboard', premoveColor = null, markedSquares = [], arrows = [] }) {
   const { preferences, boardOptions } = useSession()
   const boardRef = useRef(null)
   const previousFen = useRef(fen)
   const [selected, setSelected] = useState(null)
+  const [focusedSquare, setFocusedSquare] = useState(flipped ? 'h8' : 'a1')
   const [promotion, setPromotion] = useState(null)
   const drag = useRef(null)
   const suppressClick = useRef(false)
+  const markerId = `citadel-arrow-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   const game = useMemo(() => new Chess(fen), [fen])
   const inputGame = useMemo(() => premoveColor && game.turn() !== premoveColor ? new Chess(premoveFen(fen, premoveColor)) : game, [fen, game, premoveColor])
   const files = flipped ? ['h', 'g', 'f', 'e', 'd', 'c', 'b', 'a'] : ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
@@ -30,6 +33,7 @@ export function ChessBoard({ fen, onMove, flipped = false, interactive = true, l
   const options = selected ? inputGame.moves({ square: selected, verbose: true }) : []
   const targets = new Set(options.map((move) => move.to))
   const marked = useMemo(() => new Set(markedSquares), [markedSquares])
+  const annotationArrows = useMemo(() => boardArrows(arrows, flipped), [arrows, flipped])
 
   useLayoutEffect(() => {
     const before = previousFen.current
@@ -74,6 +78,10 @@ export function ChessBoard({ fen, onMove, flipped = false, interactive = true, l
     setPromotion(null)
   }, [fen])
 
+  useEffect(() => {
+    setFocusedSquare(flipped ? 'h8' : 'a1')
+  }, [flipped])
+
   function commit(move) {
     const changed = onMove?.({ from: move.from, to: move.to, promotion: move.promotion })
     if (changed !== false) { setSelected(null); setPromotion(null) }
@@ -97,6 +105,22 @@ export function ChessBoard({ fen, onMove, flipped = false, interactive = true, l
     else setSelected(null)
   }
 
+  function moveFocus(event, file, rank) {
+    const directions = {
+      ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1],
+    }
+    const direction = directions[event.key]
+    if (!direction) return
+    event.preventDefault()
+    const column = files.indexOf(file) + direction[0]
+    const row = ranks.indexOf(rank) + direction[1]
+    const next = files[column] && ranks[row] && `${files[column]}${ranks[row]}`
+    if (next) {
+      setFocusedSquare(next)
+      boardRef.current?.querySelector(`[data-square="${next}"]`)?.focus()
+    }
+  }
+
   return (
     <div className={`board-wrap board-theme-${preferences.boardTheme} piece-style-${preferences.pieceStyle} piece-tone-${preferences.pieceTone}`}>
       <div className="board-frame">
@@ -117,6 +141,8 @@ export function ChessBoard({ fen, onMove, flipped = false, interactive = true, l
                 data-square={square}
                 className={`square ${isDark ? 'dark' : 'light'} ${selected === square ? 'selected' : ''} ${isLastMove ? 'last-move' : ''} ${isTarget ? 'target' : ''} ${isMarked ? 'queued-move' : ''} ${piece?.type === 'k' && piece.color === game.turn() && game.isCheck() ? 'in-check' : ''}`}
                 onClick={() => { if (suppressClick.current) { suppressClick.current = false; return } chooseSquare(square) }}
+                onKeyDown={(event) => moveFocus(event, file, rank)}
+                onFocus={() => setFocusedSquare(square)}
                 onPointerDown={(event) => {
                   if (!interactive || promotion || piece?.color !== inputGame.turn() || event.button !== 0) return
                   drag.current = { square, x: event.clientX, y: event.clientY }
@@ -137,6 +163,7 @@ export function ChessBoard({ fen, onMove, flipped = false, interactive = true, l
                 onPointerCancel={() => { drag.current = null }}
                 aria-label={description}
                 aria-pressed={selected === square}
+                tabIndex={interactive && focusedSquare === square ? 0 : -1}
               >
                 {boardOptions.coordinates && columnIndex === 0 && <span className="rank-mark">{rank}</span>}
                 {boardOptions.coordinates && rowIndex === 7 && <span className="file-mark">{file}</span>}
@@ -144,6 +171,10 @@ export function ChessBoard({ fen, onMove, flipped = false, interactive = true, l
               </button>
             )
           }))}
+          {annotationArrows.length > 0 && <svg className="board-arrows" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <defs><marker id={markerId} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" /></marker></defs>
+            {annotationArrows.map((arrow) => <line key={`${arrow.from}-${arrow.to}`} className="board-arrow" x1={arrow.x} y1={arrow.y} x2={arrow.x2} y2={arrow.y2} markerEnd={`url(#${markerId})`} />)}
+          </svg>}
         </div>
       </div>
 

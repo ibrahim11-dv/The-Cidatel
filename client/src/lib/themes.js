@@ -14,6 +14,10 @@ export const THEMES = [
 export function readTheme() {
   try { return localStorage.getItem('citadel:theme') || 'walnut' } catch { return 'walnut' }
 }
+export function savedTheme(session) {
+  const accountTheme = session?.preferences?.siteTheme
+  return THEMES.some((theme) => theme.id === accountTheme) ? accountTheme : readTheme()
+}
 export const CUSTOM_COLORS = [
   ['--paper', 'Background'], ['--sidebar', 'Sidebar'], ['--paper-light', 'Panels'],
   ['--ink', 'Text'], ['--brass', 'Accent'], ['--button', 'Buttons'],

@@ -2,9 +2,11 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import './styles.css'
-import { applyTheme, readTheme } from './lib/themes'
+import { applyTheme, savedTheme } from './lib/themes'
+import { getSession } from './lib/storage'
 
-applyTheme(readTheme())
+const restoredSession = getSession()
+applyTheme(savedTheme(restoredSession), restoredSession?.preferences?.customColors)
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

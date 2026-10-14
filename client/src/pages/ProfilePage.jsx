@@ -5,8 +5,11 @@ import { useSession } from '../context/SessionContext'
 import { puzzles } from '../data/puzzles'
 import { formatDate, initials, STARTING_FEN } from '../lib/chess'
 import { getGames, getPuzzleProgress, savePuzzleSnapshot } from '../lib/storage'
+import { loadPuzzleStats, puzzleSuccessRate, savePuzzleStats } from '../lib/puzzleStats'
 import { gameApi, puzzleApi } from '../lib/api'
 import { onlineResultStats } from '../lib/onlineHistory'
+import { nextUnfinishedPuzzle } from '../lib/puzzleCatalog'
+import { scorebookRecords, visibleScorebookRecords } from '../lib/scorebookRecords'
 
 const boardThemes = [
   ['walnut', 'Walnut', 'Warm tournament wood'],
@@ -35,20 +38,30 @@ export function ProfilePage() {
   const [appearanceMessage, setAppearanceMessage] = useState('')
   const games = getGames(session.id)
   const [completed, setCompleted] = useState(() => getPuzzleProgress(session.id))
+  const [studyStats, setStudyStats] = useState(() => loadPuzzleStats(session.id))
   const [onlineGames, setOnlineGames] = useState([])
+  const [onlineHistoryLoaded, setOnlineHistoryLoaded] = useState(false)
+  const [showAllRecords, setShowAllRecords] = useState(false)
   const localWins = games.filter((game) => game.result.startsWith(game.ownerColor === 'w' ? 'White wins' : 'Black wins')).length
   const localDraws = games.filter((game) => game.result.startsWith('Draw')).length
   const onlineTotals = onlineResultStats(onlineGames, session.id)
   const wins = localWins + onlineTotals.wins
   const draws = localDraws + onlineTotals.draws
+  const solveRate = puzzleSuccessRate(studyStats)
+  const nextStudy = nextUnfinishedPuzzle(puzzles, completed)
+  const records = scorebookRecords(games, onlineGames, session.id)
+  const visibleRecords = visibleScorebookRecords(records, showAllRecords)
 
   useEffect(() => {
     let active = true
     puzzleApi.progress().then((progress) => {
       if (!active) return
-      const next = progress.completed.length ? progress.completed : getPuzzleProgress(session.id)
-      savePuzzleSnapshot(session.id, next)
-      setCompleted(next)
+      const local = { completed: getPuzzleProgress(session.id), stats: loadPuzzleStats(session.id) }
+      const snapshot = progress.completed.length || progress.stats.attempted ? progress : local
+      savePuzzleSnapshot(session.id, snapshot.completed)
+      savePuzzleStats(session.id, snapshot.stats)
+      setCompleted(snapshot.completed)
+      setStudyStats(snapshot.stats)
     }).catch(() => {
       // The profile remains useful from its local puzzle cache while offline.
     })
@@ -59,7 +72,7 @@ export function ProfilePage() {
     let active = true
     gameApi.history().then((records) => { if (active) setOnlineGames(records) }).catch(() => {
       // Local records remain available when the online history service is unavailable.
-    })
+    }).finally(() => { if (active) setOnlineHistoryLoaded(true) })
     return () => { active = false }
   }, [])
 
@@ -120,11 +133,12 @@ export function ProfilePage() {
       </div>
 
       <div className="scorebook-grid">
-        <section className="history-list"><div className="section-heading"><div><p className="eyebrow">Recent games</p><h2>Game record</h2></div><Link to="/play/local">Start a game</Link></div>
-          {games.length ? games.slice(0, 7).map((game) => <Link className="game-record" to={`/history/${game.id}`} key={game.id}><span>{formatDate(game.createdAt)}</span><b>{game.mode === 'bot' ? 'House bot' : 'Local game'}</b><em>{game.result}</em><i>{game.moves.length} ply</i></Link>) : <div className="empty-state"><b>No games recorded yet.</b><p>Finish a local or bot game while signed in and the full score sheet will appear here.</p></div>}
-          {onlineGames.length > 0 && <><div className="section-heading"><div><p className="eyebrow">Online games</p><h2>Club tables</h2></div><Link to="/online">Play online</Link></div>{onlineGames.map((game) => <Link className="game-record" to={`/online?game=${game.id}`} key={game.id}><span>{formatDate(new Date(game.savedAtMillis).toISOString())}</span><b>Online game</b><em>{game.result.score} · {game.result.reason}</em><i>{game.moves.length} ply</i></Link>)}</>}
+        <section className="history-list"><div className="section-heading"><div><p className="eyebrow">Recent games</p><h2>Game record</h2></div><div className="section-links"><Link to="/play/local">Local</Link><Link to="/online">Online</Link></div></div>
+          {records.length ? <>{visibleRecords.map((record) => <Link className="game-record" to={record.href} key={record.id}><span>{formatDate(record.date)}</span><b>{record.title}</b><em>{record.result}</em><i>{record.ply} ply</i></Link>)}
+            {records.length > 7 && <button type="button" className="text-button scorebook-toggle" aria-expanded={showAllRecords} onClick={() => setShowAllRecords((expanded) => !expanded)}>{showAllRecords ? 'Show recent games' : `Show all ${records.length} games`}</button>}
+          </> : onlineHistoryLoaded ? <div className="empty-state"><b>No games recorded yet.</b><p>Finish a local, bot, or online game and its score sheet will appear here.</p></div> : <p className="small-note" role="status">Loading your club tables…</p>}
         </section>
-        <aside className="study-progress"><p className="eyebrow">Studies</p><h2>Notebook marks</h2>{puzzles.map((puzzle, index) => <div key={puzzle.id} className={completed.includes(puzzle.id) ? 'completed-study' : ''}><span>{String(index + 1).padStart(2, '0')}</span><b>{puzzle.title}</b><em>{completed.includes(puzzle.id) ? 'Solved' : 'Open'}</em></div>)}<Link className="text-link" to="/puzzles">Visit study room →</Link></aside>
+        <aside className="study-progress"><p className="eyebrow">Studies</p><h2>Notebook marks</h2><div className="study-metrics" aria-label="Puzzle statistics"><div><span>Solve rate</span><b>{solveRate}%</b></div><div><span>Current streak</span><b>{studyStats.streak}</b></div><div><span>Best streak</span><b>{studyStats.best}</b></div></div>{nextStudy && <p className="study-next">Next in progression: <b>{nextStudy.title}</b></p>}{puzzles.map((puzzle, index) => <div key={puzzle.id} className={completed.includes(puzzle.id) ? 'completed-study' : ''}><span>{String(index + 1).padStart(2, '0')}</span><b>{puzzle.title}</b><em>{completed.includes(puzzle.id) ? 'Solved' : 'Open'}</em></div>)}<Link className="text-link" to="/puzzles">Visit study room →</Link></aside>
       </div>
 
       <section className="settings-desk" aria-label="Account and appearance settings">
