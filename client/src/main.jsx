@@ -6,7 +6,7 @@ import { applyTheme, savedTheme } from './lib/themes'
 import { getSession } from './lib/storage'
 
 const restoredSession = getSession()
-applyTheme(savedTheme(restoredSession), restoredSession?.preferences?.customColors)
+applyTheme(savedTheme(restoredSession))
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

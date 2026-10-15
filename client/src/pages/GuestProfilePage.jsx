@@ -18,6 +18,6 @@ export function GuestProfilePage() {
       <span>{formatDate(game.createdAt)}</span><b>{game.mode === 'bot' ? 'Stockfish' : 'Local game'}</b><em>{game.result}</em><i>{game.moves.length} ply</i>
     </Link>) : <div className="empty-state"><b>Your next game starts here.</b><p>Complete a local or bot game and its score sheet will appear in this list.</p></div>}
     <section className="guest-study-summary" aria-label="Guest puzzle statistics"><p className="eyebrow">Studies</p><h2>Practice record</h2><p>{completed.length} / {puzzles.length} solved · {solveRate}% solve rate · Streak {studyStats.streak} · Best {studyStats.best}</p>{nextStudy && <p className="small-note">Next in progression: {nextStudy.title}.</p>}<Link className="text-link" to="/puzzles">Continue studies →</Link></section>
-    <nav className="table-navigation" aria-label="Profile actions"><Link to="/settings">Appearance settings</Link><Link to="/login">Sign in</Link><Link to="/register">Create an account</Link></nav>
+    <nav className="profile-actions" aria-label="Profile actions"><Link to="/settings">Appearance settings</Link><Link to="/login">Sign in</Link><Link to="/register">Create an account</Link></nav>
   </section>
 }

@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChessBoard } from '../components/ChessBoard'
 import { useSession } from '../context/SessionContext'
 import { puzzles } from '../data/puzzles'
-import { formatDate, initials, STARTING_FEN } from '../lib/chess'
+import { formatDate, initials } from '../lib/chess'
 import { getGames, getPuzzleProgress, savePuzzleSnapshot } from '../lib/storage'
 import { loadPuzzleStats, puzzleSuccessRate, savePuzzleStats } from '../lib/puzzleStats'
 import { gameApi, puzzleApi } from '../lib/api'
@@ -11,31 +10,12 @@ import { onlineResultStats } from '../lib/onlineHistory'
 import { nextUnfinishedPuzzle } from '../lib/puzzleCatalog'
 import { scorebookRecords, visibleScorebookRecords } from '../lib/scorebookRecords'
 
-const boardThemes = [
-  ['walnut', 'Walnut', 'Warm tournament wood'],
-  ['forest', 'Forest', 'Green felt and boxwood'],
-  ['midnight', 'Midnight', 'Blue slate and ash'],
-]
-
-const pieceStyles = [
-  ['classic', 'Classic', 'Outlined Staunton'],
-  ['modern', 'Modern', 'Crisp club set'],
-  ['manuscript', 'Manuscript', 'Printed scorebook'],
-]
-
-const pieceTones = [
-  ['ivory', 'Ivory'],
-  ['ebony', 'Ebony'],
-  ['brass', 'Brass'],
-]
-
 export function ProfilePage() {
-  const { session, preferences, updateAccount, changePassword, setPreferences } = useSession()
+  const { session, updateAccount, changePassword } = useSession()
   const [identity, setIdentity] = useState({ username: session.username, email: session.email })
   const [passwords, setPasswords] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [accountMessage, setAccountMessage] = useState('')
   const [passwordMessage, setPasswordMessage] = useState('')
-  const [appearanceMessage, setAppearanceMessage] = useState('')
   const games = getGames(session.id)
   const [completed, setCompleted] = useState(() => getPuzzleProgress(session.id))
   const [studyStats, setStudyStats] = useState(() => loadPuzzleStats(session.id))
@@ -107,16 +87,6 @@ export function ProfilePage() {
     }
   }
 
-  async function updateAppearance(patch) {
-    setAppearanceMessage('')
-    try {
-      await setPreferences(patch)
-      setAppearanceMessage('Board appearance saved.')
-    } catch (issue) {
-      setAppearanceMessage(issue.message || 'We could not save the board appearance.')
-    }
-  }
-
   return (
     <section className="profile-page">
       <header className="scorebook-cover">
@@ -143,15 +113,7 @@ export function ProfilePage() {
 
       <section className="settings-desk" aria-label="Account and appearance settings">
         <div className="settings-heading"><p className="eyebrow">Club room settings</p><h2>Make the table yours.</h2><p>These details are saved with your club account and follow you through every board.</p></div>
-        <div className="appearance-studio">
-          <div className="appearance-preview"><ChessBoard fen={STARTING_FEN} interactive={false} label="Board appearance preview" /></div>
-          <div className="appearance-controls">
-            <fieldset><legend>Board</legend><div className="choice-grid">{boardThemes.map(([value, name, description]) => <button className={`appearance-choice board-choice board-choice-${value} ${preferences.boardTheme === value ? 'selected' : ''}`} type="button" onClick={() => void updateAppearance({ boardTheme: value })} key={value}><span /><b>{name}</b><small>{description}</small></button>)}</div></fieldset>
-            <fieldset><legend>Piece style</legend><div className="choice-grid compact">{pieceStyles.map(([value, name, description]) => <button className={`appearance-choice ${preferences.pieceStyle === value ? 'selected' : ''}`} type="button" onClick={() => void updateAppearance({ pieceStyle: value })} key={value}><b>{name}</b><small>{description}</small></button>)}</div></fieldset>
-            <fieldset><legend>Piece tone</legend><div className="tone-row">{pieceTones.map(([value, name]) => <button className={`tone-choice tone-${value} ${preferences.pieceTone === value ? 'selected' : ''}`} type="button" onClick={() => void updateAppearance({ pieceTone: value })} key={value}><i>♟</i>{name}</button>)}</div></fieldset>
-            {appearanceMessage && <p className="settings-message" role="status">{appearanceMessage}</p>}
-          </div>
-        </div>
+        <div className="appearance-shortcut"><div><p className="eyebrow">Appearance</p><h3>Set the board and club backdrop.</h3><p>Palettes, backgrounds, board materials, and piece styles now live together in Appearance.</p></div><Link className="quiet-button" to="/settings">Open Appearance</Link></div>
 
         <div className="account-settings">
           <form className="settings-form" onSubmit={saveIdentity}>

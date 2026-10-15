@@ -4,7 +4,9 @@ import { useSession } from '../context/SessionContext'
 import { initials } from '../lib/chess'
 
 const navItems = [
-  ['Play', '/play/local'],
+  ['Local', '/play/local'],
+  ['Bots', '/play/bot'],
+  ['Online', '/online'],
   ['Puzzles', '/puzzles'],
   ['Profile', '/profile'],
   ['Settings', '/settings'],

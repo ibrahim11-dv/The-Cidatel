@@ -22,6 +22,7 @@ export function getGuestPreferences() {
   const saved = localRead('citadel:guest-pieces', {})
   return {
     ...DEFAULT_PREFERENCES,
+    boardTheme: ['walnut', 'forest', 'midnight'].includes(saved?.boardTheme) ? saved.boardTheme : 'walnut',
     pieceStyle: ['classic', 'modern', 'manuscript'].includes(saved?.pieceStyle) ? saved.pieceStyle : 'classic',
     pieceTone: ['ivory', 'ebony', 'brass'].includes(saved?.pieceTone) ? saved.pieceTone : 'ivory',
   }

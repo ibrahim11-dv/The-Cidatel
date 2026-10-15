@@ -44,6 +44,12 @@ try {
   page.on('pageerror', (error) => errors.push(error.message))
 
   await page.goto(`${baseUrl}/play/local`, { waitUntil: 'domcontentloaded' })
+  const mainNavigation = page.getByRole('navigation', { name: 'Main navigation' })
+  await mainNavigation.getByRole('link', { name: 'Local' }).waitFor()
+  await mainNavigation.getByRole('link', { name: 'Bots' }).waitFor()
+  await mainNavigation.getByRole('link', { name: 'Online' }).waitFor()
+  assert.equal(await mainNavigation.getByRole('link', { name: 'Play' }).count(), 0, 'play modes are direct primary navigation links')
+  assert.equal(await page.locator('.table-navigation').count(), 0, 'the page-level play-mode navigation is removed')
   assert.equal(await page.locator('.chess-board [data-square][tabindex="0"]').count(), 1, 'a board has one Tab stop')
   await page.locator('[data-square="e2"]').focus()
   await page.keyboard.press('ArrowRight')
@@ -131,10 +137,32 @@ try {
   await page.locator('[aria-label="Black pawn on c5"]').waitFor()
 
   await page.goto(`${baseUrl}/settings`, { waitUntil: 'domcontentloaded' })
+  assert.equal(await page.locator('input[type="color"]').count(), 0, 'appearance no longer exposes raw color inputs')
   await page.getByRole('button', { name: 'Forest Chess' }).click()
   await page.locator('html[data-theme="forest"]').waitFor()
+  await page.locator('.board-choice-forest').click()
+  await page.locator('.appearance-preview .board-wrap.board-theme-forest').waitFor()
+  await page.getByRole('button', { name: /Modern.*Crisp club set/ }).click()
+  await page.locator('.appearance-preview .piece-style-modern').waitFor()
+  await page.getByRole('button', { name: 'Midnight slate background' }).click()
+  await page.locator('html[data-background="midnight-slate"]').waitFor()
+  const backgroundUpload = page.getByLabel('Upload background image')
+  await backgroundUpload.setInputFiles({ name: 'not-a-background.svg', mimeType: 'image/svg+xml', buffer: Buffer.from('<svg />') })
+  await page.getByText('Choose a PNG, JPEG, or WebP image.').waitFor()
+  await backgroundUpload.setInputFiles({
+    name: 'club-background.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9J6D0AAAAASUVORK5CYII=', 'base64'),
+  })
+  await page.locator('html[data-background="upload"]').waitFor()
   await page.reload({ waitUntil: 'domcontentloaded' })
   await page.locator('html[data-theme="forest"]').waitFor()
+  await page.locator('html[data-background="upload"]').waitFor()
+  await page.getByRole('button', { name: 'Use uploaded background' }).waitFor()
+  await page.locator('.appearance-preview .board-wrap.board-theme-forest.piece-style-modern').waitFor()
+  await page.getByRole('button', { name: 'Reset background' }).click()
+  await page.locator('html[data-background="parchment"]').waitFor()
+  assert.equal(await page.getByRole('button', { name: 'Use uploaded background' }).count(), 0, 'reset removes the browser-local uploaded image')
   await noHorizontalOverflow(page, 'desktop appearance studio')
   await page.getByLabel('Local board orientation').selectOption('black')
   await waitForValue(
@@ -159,6 +187,7 @@ try {
   const mobilePage = await mobile.newPage()
   mobilePage.on('pageerror', (error) => errors.push(error.message))
   await mobilePage.goto(`${baseUrl}/play/local`, { waitUntil: 'domcontentloaded' })
+  await mobilePage.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Online' }).waitFor()
   await move(mobilePage, 'e2', 'e4', true)
   await mobilePage.locator('[aria-label="White pawn on e4"]').waitFor()
   await noHorizontalOverflow(mobilePage, 'touch-sized local table')
@@ -184,7 +213,7 @@ try {
   await reduced.close()
 
   assert.deepEqual(errors, [], 'the tested UI routes must not raise browser errors')
-  console.log('Passed real Edge UI flow: roving keyboard focus and local moves, completed-game navigation, rendered promotion choice, puzzle board flipping plus one-move and multi-move puzzle completion with retry, Stockfish replies as either color and takeback, bot selection, persisted theme and local board orientation switching, online sign-in return, touch-sized layout, and reduced-motion board moves.')
+  console.log('Passed real Edge UI flow: direct play navigation, curated palette/background/board/piece settings with uploaded-background persistence, roving keyboard focus and local moves, completed-game navigation, rendered promotion choice, puzzle completion, Stockfish play, account sign-in return, touch-sized layout, and reduced-motion board moves.')
 } finally {
   await browser.close()
 }

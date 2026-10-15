@@ -1,5 +1,6 @@
 import { BrowserRouter, Link, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { SessionProvider, useSession } from './context/SessionContext'
+import { BackgroundProvider } from './context/BackgroundContext'
 import { Shell } from './components/Shell'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { GamePage } from './pages/GamePage'
@@ -33,23 +34,25 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppErrorBoundary>
-        <SessionProvider>
-          <Routes>
-            <Route element={<Shell />}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/play/local" element={<GamePage key="local" mode="local" />} />
-              <Route path="/play/bot" element={<GamePage key="bot" mode="bot" />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<LoginPage register />} />
-              <Route path="/online" element={<RequireSession><OnlinePage /></RequireSession>} />
-              <Route path="/puzzles" element={<PuzzlesPage />} />
-              <Route path="/profile" element={<PlayerProfile />} />
-              <Route path="/history/:gameId" element={<HistoryPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
-          </Routes>
-        </SessionProvider>
+        <BackgroundProvider>
+          <SessionProvider>
+            <Routes>
+              <Route element={<Shell />}>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/play/local" element={<GamePage key="local" mode="local" />} />
+                <Route path="/play/bot" element={<GamePage key="bot" mode="bot" />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<LoginPage register />} />
+                <Route path="/online" element={<RequireSession><OnlinePage /></RequireSession>} />
+                <Route path="/puzzles" element={<PuzzlesPage />} />
+                <Route path="/profile" element={<PlayerProfile />} />
+                <Route path="/history/:gameId" element={<HistoryPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Route>
+            </Routes>
+          </SessionProvider>
+        </BackgroundProvider>
       </AppErrorBoundary>
     </BrowserRouter>
   )

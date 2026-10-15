@@ -54,15 +54,16 @@ try {
   await host.getByLabel('Board coordinates').uncheck()
   await visible(host.getByText('Board preferences saved to your account.'), 'saved account board preference')
   await host.getByRole('button', { name: 'Forest Chess' }).click()
-  await visible(host.getByText('Appearance saved to your account.'), 'saved account theme')
-  await host.getByLabel('Background').fill('#17324b')
-  await visible(host.getByText('Custom colors applied. Save them to your account when ready.'), 'account custom-color preview')
-  await host.getByRole('button', { name: 'Save custom colors to account' }).click()
-  await visible(host.getByText('Custom colors saved to your account.'), 'saved account custom color')
+  await visible(host.getByText('Site palette saved to your account.'), 'saved account theme')
+  await host.locator('.board-choice-forest').click()
+  await visible(host.getByText('Board appearance saved to your account.'), 'saved account board palette')
+  await host.getByRole('button', { name: /Modern.*Crisp club set/ }).click()
+  await visible(host.getByText('Board appearance saved to your account.'), 'saved account piece style')
+  assert.equal(await host.locator('input[type="color"]').count(), 0, 'account appearance does not expose raw colors')
   await host.reload({ waitUntil: 'domcontentloaded' })
   assert.equal(await host.getByLabel('Board coordinates').isChecked(), false, 'account board preference must restore after refresh')
   await host.locator('html[data-theme="forest"]').waitFor()
-  assert.equal(await host.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--paper').trim()), '#17324b', 'account custom color must restore after refresh')
+  await host.locator('.appearance-preview .board-wrap.board-theme-forest.piece-style-modern').waitFor()
   await host.goto(`${baseUrl}/online`, { waitUntil: 'domcontentloaded' })
   await visible(host.getByRole('button', { name: 'Create invitation' }), 'host online controls')
   await host.getByRole('button', { name: 'Create invitation' }).click()
@@ -142,7 +143,7 @@ try {
 
   await hostContext.close()
   await guestContext.close()
-  console.log('Passed real Edge online flow: account theme, custom-color and board-preference persistence, private invitation join, synchronized moves and clocks, refresh recovery, rematch, player-visible draw agreement, unified scorebook result, and cancellable two-player matchmaking.')
+  console.log('Passed real Edge online flow: account palette, board, piece and board-preference persistence, private invitation join, synchronized moves and clocks, refresh recovery, rematch, player-visible draw agreement, unified scorebook result, and cancellable two-player matchmaking.')
 } catch (error) {
   const pageState = async (page) => page ? {
     url: page.url(),
